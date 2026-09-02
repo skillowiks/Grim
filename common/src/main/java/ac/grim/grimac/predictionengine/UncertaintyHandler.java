@@ -91,6 +91,13 @@ public class UncertaintyHandler {
     public final LastInstance lastStuckWest;
     public final LastInstance lastStuckEast;
     public final LastInstance lastVehicleSwitch;
+    // The self's movement-speed attribute changed between the previous movement and this
+    // one (potion effect applied/removed/amplified, plugin attribute edit). The transaction
+    // sandwich places that packet-order change correctly, but a re-sent or rewritten
+    // attributes packet (ViaVersion translation, plugins re-applying effects on a timer)
+    // can be applied by the client a movement off. Forgive the transition movements.
+    public final LastInstance lastMovementSpeedChange;
+    public double movementSpeedChangeUncertainty = 0;
     public double lastHorizontalOffset = 0;
     public double lastVerticalOffset = 0;
 
@@ -110,6 +117,7 @@ public class UncertaintyHandler {
         this.lastStuckWest = new LastInstance(player);
         this.lastStuckEast = new LastInstance(player);
         this.lastVehicleSwitch = new LastInstance(player);
+        this.lastMovementSpeedChange = new LastInstance(player);
         tick();
 
         this.riptideEntities.add(0);
@@ -133,11 +141,30 @@ public class UncertaintyHandler {
         isSteppingNearScaffolding = false;
 
         slimePistonBounces = new HashSet<>();
+        // Friction carry-over shrinks the speed-transition error with every further movement.
+        movementSpeedChangeUncertainty *= 0.91;
         tickFireworksBox();
     }
 
     public boolean wasAffectedByStuckSpeed() {
         return lastStuckSpeedMultiplier.hasOccurredSince(5);
+    }
+
+    /**
+     * Called once per movement with the freshly-read self MOVEMENT_SPEED attribute.
+     * A real value transition (effect add/remove/amplifier change, plugin edit) grants a
+     * bounded horizontal lenience for the next few movements — see the field comment.
+     * A refresh that recomposes the same modifiers lands as delta 0 and does nothing,
+     * so effect-maintenance churn cannot farm this lenience.
+     */
+    public void onSelfMovementSpeed(double newSpeed) {
+        double delta = Math.abs(newSpeed - player.speed);
+        if (delta <= 1e-9) return;
+        // The per-tick input impulse scales ~10x the attribute value, so one movement
+        // computed against the stale speed is wrong by at most delta * 10. The cap keeps
+        // this within the lenience Grim already grants for other state transitions.
+        movementSpeedChangeUncertainty = Math.min(delta * 10.0, 0.1);
+        lastMovementSpeedChange.reset();
     }
 
     public void tickFireworksBox() {
@@ -244,6 +271,13 @@ public class UncertaintyHandler {
         // Friction while gliding is 0.99 horizontally
         if (either003 && (player.isGliding || player.wasGliding)) {
             pointThree = (0.99 * (threshold * 2)) + threshold;
+        }
+
+        // A movement-speed attribute transition (potion effect applied/removed/amplified,
+        // plugin attribute edit): the client may apply the new speed one movement off our
+        // transaction placement, so forgive the transition, decaying with friction.
+        if (lastMovementSpeedChange.hasOccurredSince(2)) {
+            pointThree += movementSpeedChangeUncertainty;
         }
 
         return pointThree;

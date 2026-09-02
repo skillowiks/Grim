@@ -261,7 +261,9 @@ public class MovementCheckRunner extends GrimProcessor {
         if (player.isInBed) return;
 
         if (!player.inVehicle()) {
-            player.speed = player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED);
+            double newSpeed = player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED);
+            player.uncertaintyHandler.onSelfMovementSpeed(newSpeed);
+            player.speed = newSpeed;
             if (player.hasGravity != player.playerEntityHasGravity) {
                 player.pointThreeEstimator.updatePlayerGravity();
             }
