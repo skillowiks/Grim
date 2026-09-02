@@ -137,6 +137,11 @@ public class DebugHandler extends AbstractDebugHandler implements PostPrediction
         if (!listeners.remove(player)) listeners.add(player);
     }
 
+    /** Deterministic removal (deep-debug session teardown untoggles its initiator). */
+    public void removeListener(GrimPlayer player) {
+        listeners.remove(player);
+    }
+
     @Override
     public boolean toggleConsoleOutput() {
         this.outputToConsole = !outputToConsole;

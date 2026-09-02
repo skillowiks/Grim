@@ -19,6 +19,7 @@ import ac.grim.grimac.manager.SpectateManager;
 import ac.grim.grimac.manager.TickManager;
 import ac.grim.grimac.manager.config.BaseConfigManager;
 import ac.grim.grimac.manager.datastore.DataStoreLifecycle;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.manager.init.Initable;
 import ac.grim.grimac.platform.api.Platform;
 import ac.grim.grimac.platform.api.PlatformLoader;
@@ -51,6 +52,7 @@ public final class GrimAPI {
     private final GrimExtensionManager extensionManager;
     private final EventBus eventBus;
     private final GrimExternalAPI externalAPI;
+    private final DeepDebugManager deepDebugManager;
     private DataStoreLifecycle dataStoreLifecycle;
     private final BackendRegistry backendRegistry = buildBackendRegistry();
     private PlatformLoader loader;
@@ -67,6 +69,7 @@ public final class GrimAPI {
         this.extensionManager = new GrimExtensionManager();
         this.eventBus = new OptimizedEventBus(extensionManager);
         this.externalAPI = new GrimExternalAPI(this);
+        this.deepDebugManager = new DeepDebugManager();
     }
 
     // the order matters

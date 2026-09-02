@@ -29,6 +29,7 @@ public class PacketManager implements StartableInitable {
         PacketEvents.getAPI().getEventManager().registerListener(new PreViaCheckManagerListener());
         PacketEvents.getAPI().getEventManager().registerListener(new CheckManagerListener());
         PacketEvents.getAPI().getEventManager().registerListener(new PacketPlayerSteer());
+        PacketEvents.getAPI().getEventManager().registerListener(new DeepDebugPacketListener());
         PacketEvents.getAPI().getEventManager().registerListener(new PacketPluginMessage());
 
         if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {

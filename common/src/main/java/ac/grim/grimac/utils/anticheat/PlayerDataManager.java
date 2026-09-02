@@ -122,6 +122,8 @@ public class PlayerDataManager {
                 .onQuitFromUserDisconnect(user, grimPlayer, System.currentTimeMillis());
         if (uuid != null) {
             GrimAPI.INSTANCE.getDataStoreLifecycle().playerToggleStore().evict(uuid);
+            // End any deep-debug session so its rings do not pin the dead GrimPlayer.
+            GrimAPI.INSTANCE.getDeepDebugManager().onQuit(uuid);
         }
 
         // Check if calling async is safe

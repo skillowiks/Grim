@@ -1,5 +1,6 @@
 package ac.grim.grimac.utils.latency;
 
+import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.collisions.datatypes.SimpleCollisionBox;
 import ac.grim.grimac.utils.data.ShulkerData;
@@ -130,6 +131,9 @@ public class CompensatedEntities {
 
                 // The server can set the player's sprinting attribute
                 hasSprintingAttributeEnabled = found;
+                if (GrimAPI.INSTANCE.getDeepDebugManager().hasActiveSessions()) {
+                    recordForeignSpeedModifiers(modifiers);
+                }
                 break;
             }
         }
@@ -154,6 +158,25 @@ public class CompensatedEntities {
             }
 
             valuedAttribute.get().with(snapshotWrapper);
+        }
+    }
+
+    /**
+     * Deep-debug forensics: any self MOVEMENT_SPEED modifier that is not the
+     * vanilla sprinting modifier (and not an effect-driven modifier, which
+     * 1.21+ names with an {@code effect/} prefix) is worth surfacing —
+     * movement plugins love to hide extra speed in attribute modifiers.
+     */
+    private void recordForeignSpeedModifiers(List<WrapperPlayServerUpdateAttributes.PropertyModifier> modifiers) {
+        for (WrapperPlayServerUpdateAttributes.PropertyModifier modifier : modifiers) {
+            final ResourceLocation name = modifier.getName();
+            final String key = name == null ? String.valueOf(modifier.getUUID()) : name.getKey();
+            if (key.equals(SPRINTING_MODIFIER_UUID.toString()) || key.equals("sprinting") || key.startsWith("effect/")) {
+                continue;
+            }
+            GrimAPI.INSTANCE.getDeepDebugManager().recordAttributeAnomaly(player,
+                    "MOVEMENT_SPEED modifier '" + key + "' amount " + modifier.getAmount()
+                            + " op " + modifier.getOperation());
         }
     }
 

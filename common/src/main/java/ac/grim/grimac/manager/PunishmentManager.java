@@ -127,6 +127,11 @@ public class PunishmentManager implements ConfigReloadable {
     }
 
     public boolean handleAlert(GrimPlayer player, Supplier<String> verbose, Check check) {
+        // Deep-debug forensics: a volatile read, free when no session is active.
+        if (GrimAPI.INSTANCE.getDeepDebugManager().hasActiveSessions()) {
+            GrimAPI.INSTANCE.getDeepDebugManager().handleFlag(player, check, verbose);
+        }
+
         boolean sentDebug = false;
 
         // Check commands

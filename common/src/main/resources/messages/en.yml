@@ -130,5 +130,14 @@ grim-history-detail-entry-hover-verbose: "<newline>&7%verbose%"
 grim-history-check-count: "&f%check_name%&7 x&c%count%"
 
 # Schema markers — see header comment in config.yml.
+# Deep debug (/grim debug <nick>) — valid placeholders:
+#   %prefix% %player% %flags% %checks%
+deep-debug-started: "%prefix% &bDeep debug enabled for &f%player%&b. Live flag feed active — full forensic report: &7/grim debug %player% report&b. Auto-off after 10 minutes."
+deep-debug-stopped: "%prefix% &bDeep debug disabled for &f%player%&b. &7(%flags% flags captured)"
+deep-debug-no-session: "%prefix% &cNo deep-debug session is running for &f%player%&c. Start one with &7/grim debug %player%"
+deep-debug-report-summary: "%prefix% &bDeep debug report for &f%player%&b: &f%flags%&b flags across &f%checks%&b unique checks. Uploading..."
+# Live per-flag line — valid placeholders: %time% %check% %verbose% %vl% %context% %player%
+deep-debug-flag-line: "&8[&bDD&8] &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%"
+
 config-flavor: V2
 config-version: 2

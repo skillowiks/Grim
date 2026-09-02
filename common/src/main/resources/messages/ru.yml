@@ -132,5 +132,14 @@ grim-history-detail-entry-hover-verbose: "<newline>&7%verbose%"
 grim-history-check-count: "&f%check_name%&7 x&c%count%"
 
 # Маркеры схемы — см. шапку config.yml.
+# Глубокий дебаг (/grim debug <ник>) — допустимые плейсхолдеры:
+#   %prefix% %player% %flags% %checks%
+deep-debug-started: "%prefix% &bГлубокий дебаг включён для &f%player%&b. Живая лента флагов активна — полный отчёт: &7/grim debug %player% report&b. Авто-выключение через 10 минут."
+deep-debug-stopped: "%prefix% &bГлубокий дебаг выключен для &f%player%&b. &7(захвачено флагов: %flags%)"
+deep-debug-no-session: "%prefix% &cНет активной сессии дебага для &f%player%&c. Запусти: &7/grim debug %player%"
+deep-debug-report-summary: "%prefix% &bОтчёт дебага для &f%player%&b: &f%flags%&b флагов по &f%checks%&b чекам. Выгружаю..."
+# Живая строка на каждый флаг — допустимые плейсхолдеры: %time% %check% %verbose% %vl% %context% %player%
+deep-debug-flag-line: "&8[&bDD&8] &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%"
+
 config-flavor: V2
 config-version: 2

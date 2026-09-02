@@ -2,6 +2,10 @@ package ac.grim.grimac.command.commands;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.command.BuildableCommand;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
+import ac.grim.grimac.manager.deepdebug.DeepDebugReport;
+import ac.grim.grimac.manager.deepdebug.DeepDebugSession;
+import ac.grim.grimac.manager.deepdebug.FlagRecord;
 import ac.grim.grimac.platform.api.command.PlayerSelector;
 import ac.grim.grimac.platform.api.manager.cloud.CloudPlatformCommandArguments;
 import ac.grim.grimac.platform.api.sender.Sender;
@@ -18,17 +22,37 @@ import org.incendo.cloud.description.Description;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 public class GrimDebug implements BuildableCommand {
 
     public void register(CommandManager<Sender> commandManager, CloudPlatformCommandArguments arguments) {
         Command.Builder<Sender> grimCommand = commandManager.commandBuilder("grim", "grimac");
 
-        // Register "debug" subcommand
+        // /grim debug [target] — toggle the deep-debug session (live flag feed + forensics capture)
         Command.Builder<Sender> debugCommand = grimCommand
-                .literal("debug", Description.of("Toggle debug output for a player"))
+                .literal("debug", Description.of("Toggle deep-debug forensics for a player"))
                 .permission("grim.debug")
                 .optional("target", arguments.singlePlayerSelectorParser())
-                .handler(this::handleDebug);
+                .handler(this::handleDebugToggle);
+
+        // /grim debug <target> report — build and upload the forensic report
+        Command.Builder<Sender> debugReportCommand = grimCommand
+                .literal("debug", Description.of("Toggle deep-debug forensics for a player"))
+                .permission("grim.debug")
+                .required("target", arguments.singlePlayerSelectorParser())
+                .literal("report", Description.of("Build the deep-debug forensic report"))
+                .handler(this::handleDebugReport);
+
+        // /grim debug <target> stop — stop the session without a report
+        Command.Builder<Sender> debugStopCommand = grimCommand
+                .literal("debug", Description.of("Toggle deep-debug forensics for a player"))
+                .permission("grim.debug")
+                .required("target", arguments.singlePlayerSelectorParser())
+                .literal("stop", Description.of("Stop the deep-debug session"))
+                .handler(this::handleDebugStop);
 
         // Register "consoledebug" subcommand
         Command.Builder<Sender> consoleDebugCommand = grimCommand
@@ -39,10 +63,12 @@ public class GrimDebug implements BuildableCommand {
 
         // Register command
         commandManager.command(debugCommand);
+        commandManager.command(debugReportCommand);
+        commandManager.command(debugStopCommand);
         commandManager.command(consoleDebugCommand);
     }
 
-    private void handleDebug(@NotNull CommandContext<Sender> context) {
+    private void handleDebugToggle(@NotNull CommandContext<Sender> context) {
         Sender sender = context.sender();
         PlayerSelector playerSelector = context.getOrDefault("target", null);
 
@@ -52,21 +78,83 @@ public class GrimDebug implements BuildableCommand {
             return;
         }
 
-        if (sender.isConsole()) {
-            targetGrimPlayer.checkManager.getDebugHandler().toggleConsoleOutput();
-        } else if (sender.isPlayer()) {
-            GrimPlayer senderGrimPlayer = GrimAPI.INSTANCE.getPlayerDataManager().getPlayer(sender.getUniqueId());
-            if (senderGrimPlayer == null) {
-                sender.sendMessage(MessageUtil.getParsedComponent(sender, "sender-not-found", "%prefix% &cYou cannot be exempt to use this command!"));
-                return;
-            }
-            targetGrimPlayer.checkManager.getDebugHandler().toggleListener(senderGrimPlayer);
-        } else {
-            sender.sendMessage(MessageUtil.getParsedComponent(sender,
-                    "run-as-player-or-console",
-                    "%prefix% &cThis command can only be used by players or the console!")
-            );
+        DeepDebugManager manager = GrimAPI.INSTANCE.getDeepDebugManager();
+        String targetName = playerName(targetGrimPlayer);
+
+        DeepDebugSession existing = manager.getSession(targetGrimPlayer.uuid);
+        if (existing != null) {
+            int flags = existing.flagsSnapshot().size();
+            manager.stopSession(targetGrimPlayer.uuid, "toggled");
+            sendKey(sender, "deep-debug-stopped",
+                    "%prefix% &bDeep debug disabled for &f%player%&b. &7(%flags% flags captured)",
+                    targetName, flags, -1);
+            return;
         }
+
+        manager.startSession(targetGrimPlayer, sender);
+
+        sendKey(sender, "deep-debug-started",
+                "%prefix% &bDeep debug enabled for &f%player%&b. Live flag feed active — full forensic report: "
+                        + "&7/grim debug %player% report&b. Auto-off after 10 minutes.",
+                targetName, -1, -1);
+    }
+
+    private void handleDebugReport(@NotNull CommandContext<Sender> context) {
+        Sender sender = context.sender();
+        PlayerSelector playerSelector = context.get("target");
+
+        GrimPlayer targetGrimPlayer = parseTarget(sender, playerSelector.getSinglePlayer());
+        if (targetGrimPlayer == null) {
+            sender.sendMessage(MessageUtil.getParsedComponent(sender, "player-not-found", "%prefix% &cPlayer is exempt or offline!"));
+            return;
+        }
+
+        DeepDebugManager manager = GrimAPI.INSTANCE.getDeepDebugManager();
+        DeepDebugSession session = manager.getSession(targetGrimPlayer.uuid);
+        if (session == null) {
+            sendKey(sender, "deep-debug-no-session",
+                    "%prefix% &cNo deep-debug session is running for &f%player%&c. Start one with &7/grim debug %player%",
+                    playerName(targetGrimPlayer), -1, -1);
+            return;
+        }
+
+        List<FlagRecord> flags = session.flagsSnapshot();
+        Map<String, Integer> byCheck = new LinkedHashMap<>();
+        for (FlagRecord flag : flags) {
+            byCheck.merge(flag.checkName, 1, Integer::sum);
+        }
+        sendKey(sender, "deep-debug-report-summary",
+                "%prefix% &bDeep debug report for &f%player%&b: &f%flags%&b flags across &f%checks%&b unique checks. Uploading...",
+                playerName(targetGrimPlayer), flags.size(), byCheck.size());
+
+        String report = DeepDebugReport.build(session);
+        GrimLog.sendLogAsync(sender, report, url -> { }, "text/yaml");
+    }
+
+    private void handleDebugStop(@NotNull CommandContext<Sender> context) {
+        Sender sender = context.sender();
+        PlayerSelector playerSelector = context.get("target");
+
+        GrimPlayer targetGrimPlayer = parseTarget(sender, playerSelector.getSinglePlayer());
+        if (targetGrimPlayer == null) {
+            sender.sendMessage(MessageUtil.getParsedComponent(sender, "player-not-found", "%prefix% &cPlayer is exempt or offline!"));
+            return;
+        }
+
+        DeepDebugManager manager = GrimAPI.INSTANCE.getDeepDebugManager();
+        DeepDebugSession session = manager.getSession(targetGrimPlayer.uuid);
+        if (session == null) {
+            sendKey(sender, "deep-debug-no-session",
+                    "%prefix% &cNo deep-debug session is running for &f%player%&c. Start one with &7/grim debug %player%",
+                    playerName(targetGrimPlayer), -1, -1);
+            return;
+        }
+
+        int flags = session.flagsSnapshot().size();
+        manager.stopSession(targetGrimPlayer.uuid, "stopped");
+        sendKey(sender, "deep-debug-stopped",
+                "%prefix% &bDeep debug disabled for &f%player%&b. &7(%flags% flags captured)",
+                playerName(targetGrimPlayer), flags, -1);
     }
 
     private void handleConsoleDebug(@NotNull CommandContext<Sender> context) {
@@ -89,6 +177,19 @@ public class GrimDebug implements BuildableCommand {
         sender.sendMessage(message);
     }
 
+    private static String playerName(GrimPlayer player) {
+        String name = player.user.getName();
+        return name == null ? player.uuid.toString() : name;
+    }
+
+    private static void sendKey(Sender sender, String key, String fallback, String targetName, int flags, int checks) {
+        String raw = GrimAPI.INSTANCE.getConfigManager().getConfig().getStringElse(key, fallback)
+                .replace("%player%", targetName)
+                .replace("%flags%", String.valueOf(Math.max(0, flags)))
+                .replace("%checks%", String.valueOf(Math.max(0, checks)));
+        sender.sendMessage(MessageUtil.miniMessage(MessageUtil.replacePlaceholders(sender, raw)));
+    }
+
     private @Nullable GrimPlayer parseTarget(@NotNull Sender sender, @Nullable Sender t) {
         if (sender.isConsole() && t == null) {
             sender.sendMessage(MessageUtil.getParsedComponent(sender, "console-specify-target", "%prefix% &cYou must specify a target as the console!"));
@@ -98,7 +199,9 @@ public class GrimDebug implements BuildableCommand {
 
         GrimPlayer grimPlayer = GrimAPI.INSTANCE.getPlayerDataManager().getPlayer(target.getUniqueId());
         if (grimPlayer == null) {
-            User user = PacketEvents.getAPI().getPlayerManager().getUser(sender.getPlatformPlayer().getNative());
+            // Console senders have no platform player — the PacketEvents lookup below is player-only.
+            User user = sender.getPlatformPlayer() == null ? null
+                    : PacketEvents.getAPI().getPlayerManager().getUser(sender.getPlatformPlayer().getNative());
             sender.sendMessage(MessageUtil.getParsedComponent(sender, "player-not-found", "%prefix% &cPlayer is exempt or offline!"));
 
             if (user == null) {
