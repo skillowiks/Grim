@@ -36,6 +36,16 @@ public final class LiveWriteHooksImpl implements LiveWriteHooks {
     private final Map<String, Integer> checkIdCache = new ConcurrentHashMap<>();
     /** display-name-lowercase of checks we've already warned about. Prevents log spam. */
     private final Set<String> missingStableKeyLogged = ConcurrentHashMap.newKeySet();
+    /**
+     * Last stored-row timestamp per (player, check), for the binary-verbose rate
+     * cap. Binary rows already pass the [log] punishment command's
+     * threshold:interval gate; this collapses bursts that still slip past it.
+     */
+    private final Map<UUID, Map<AbstractCheck, Long>> lastBinaryRowMs = new ConcurrentHashMap<>();
+    /** database.write-path.violation-store-min-interval-ms; 0 = store every [log] execution. */
+    private final long binaryRowMinIntervalMs;
+    /** database.write-path.violation-store-min-interval-per-check; lowercased check name → interval. */
+    private final Map<String, Long> perCheckMinIntervalMs;
 
     public LiveWriteHooksImpl(
             @NotNull DataStore store,
@@ -46,6 +56,23 @@ public final class LiveWriteHooksImpl implements LiveWriteHooks {
         this.identityService = identityService;
         this.checkRegistry = checkRegistry;
         this.sessionTracker = sessionTracker;
+        this.binaryRowMinIntervalMs = GrimAPI.INSTANCE.getConfigManager().getConfig()
+                .getLongElse("database.write-path.violation-store-min-interval-ms", 0L);
+        this.perCheckMinIntervalMs = readPerCheckIntervals();
+    }
+
+    /** Lowercased check-name → interval map; numeric values only, anything else ignored. */
+    private static @NotNull Map<String, Long> readPerCheckIntervals() {
+        Map<String, Object> raw = GrimAPI.INSTANCE.getConfigManager().getConfig()
+                .getMapElse("database.write-path.violation-store-min-interval-per-check", Map.of());
+        Map<String, Long> out = new ConcurrentHashMap<>();
+        if (raw == null) return out;
+        for (Map.Entry<String, Object> e : raw.entrySet()) {
+            if (e.getValue() instanceof Number n) {
+                out.put(e.getKey().toLowerCase(Locale.ROOT), n.longValue());
+            }
+        }
+        return out;
     }
 
     @Override
@@ -56,11 +83,15 @@ public final class LiveWriteHooksImpl implements LiveWriteHooks {
             @NotNull SessionTracker.ClientMeta meta) {
         identityService.observe(uuid, name, now);
         sessionTracker.observeActivity(uuid, now, meta);
+        // Fresh session: give the new session's first flags a fresh rate window.
+        lastBinaryRowMs.remove(uuid);
     }
 
     @Override
     public void onQuit(@NotNull UUID uuid, long now, @NotNull SessionTracker.ClientMeta meta) {
         sessionTracker.close(uuid, now, meta);
+        // Check instances are per-player; dropping the map frees them.
+        lastBinaryRowMs.remove(uuid);
     }
 
     @Override
@@ -164,11 +195,35 @@ public final class LiveWriteHooksImpl implements LiveWriteHooks {
             double vl,
             byte @Nullable [] verboseData) {
         try {
-            recordFlagData(player.uuid, check, vl, verboseData, System.currentTimeMillis(), SessionTracker.ClientMeta.empty());
+            long now = System.currentTimeMillis();
+            if (shouldStoreBinaryRow(player.uuid, check, now)) {
+                recordFlagData(player.uuid, check, vl, verboseData, now, SessionTracker.ClientMeta.empty());
+            }
         } catch (RuntimeException e) {
             // Don't let a datastore issue break the check path.
             LogUtil.warn("v1 datastore recordFlag failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Rate cap for binary-verbose rows: at most one stored row per (player, check)
+     * per interval. Sparse flagging (legit players, one flag every few seconds) is
+     * unaffected — every [log] execution still lands. Only bursts collapse: a
+     * 20 flags/sec storm stores at most one row per interval while still recording
+     * the rising VL on each stored row. The in-memory violation counters, alerts
+     * and setbacks are NOT throttled — only the database row is. The window counts
+     * write attempts, not successes: a failing datastore is not re-hit every flag.
+     */
+    private boolean shouldStoreBinaryRow(@NotNull UUID uuid, @NotNull AbstractCheck check, long now) {
+        long interval = perCheckMinIntervalMs.isEmpty()
+                ? binaryRowMinIntervalMs
+                : perCheckMinIntervalMs.getOrDefault(check.getCheckName().toLowerCase(Locale.ROOT), binaryRowMinIntervalMs);
+        if (interval <= 0L) return true;
+        Map<AbstractCheck, Long> perCheck = lastBinaryRowMs.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+        Long last = perCheck.get(check);
+        if (last != null && now - last < interval) return false;
+        perCheck.put(check, now);
+        return true;
     }
 
     private int resolveCheckId(@NotNull AbstractCheck check) {

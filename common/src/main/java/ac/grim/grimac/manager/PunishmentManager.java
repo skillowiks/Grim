@@ -163,8 +163,14 @@ public class PunishmentManager implements ConfigReloadable {
                             switch (command.command) {
                                 case "[webhook]" -> GrimAPI.INSTANCE.getDiscordManager().sendAlert(player, renderedVerbose, check.getDisplayName(), vl);
                                 case "[log]" -> {
-                                    // Binary flags already stored a row; avoid an extra legacy text row.
-                                    if (!check.isLastFlagStoredBinaryVerbose()) {
+                                    // [log] is THE database-write control: both verbose flavours
+                                    // store their row here, gated by this command's
+                                    // threshold:interval. Binary flags carry the structured
+                                    // payload stashed on the check; text flags render inline.
+                                    if (check.isLastFlagStoredBinaryVerbose()) {
+                                        GrimAPI.INSTANCE.getDataStoreLifecycle().liveWriteHooks()
+                                                .recordFlagDataFromCheck(player, check, vl, check.lastFlagVerboseData());
+                                    } else {
                                         String verboseWithoutGl = renderedVerbose.replaceAll(" /gl .*", "");
                                         GrimAPI.INSTANCE.getDataStoreLifecycle().liveWriteHooks()
                                                 .recordFlagFromCheck(player, check, vl, verboseWithoutGl);

@@ -28,6 +28,8 @@ public class Check extends GrimProcessor implements AbstractCheck {
     public double violations;
     private long lastViolationTime;
     private boolean lastFlagStoredBinaryVerbose;
+    /** Structured verbose payload of the most recent binary flag; consumed by the [log] command. */
+    private byte @Nullable [] lastFlagVerboseData;
     private final VerboseBuf verbose = VERBOSE.get();
 
     // check data
@@ -144,6 +146,7 @@ public class Check extends GrimProcessor implements AbstractCheck {
         if (FLAG_CHANNEL.fire(player, this, verbose)) return false;
 
         lastFlagStoredBinaryVerbose = false;
+        lastFlagVerboseData = null; // release the stale binary payload; the [log] branch won't read it
         player.punishmentManager.handleViolation(this);
         lastViolationTime = System.currentTimeMillis();
         violations++;
@@ -160,12 +163,20 @@ public class Check extends GrimProcessor implements AbstractCheck {
         if (FLAG_CHANNEL.fire(player, this, rendered)) return false;
 
         lastFlagStoredBinaryVerbose = true;
+        lastFlagVerboseData = verboseData;
         player.punishmentManager.handleViolation(this);
         lastViolationTime = System.currentTimeMillis();
         violations++;
-        GrimAPI.INSTANCE.getDataStoreLifecycle().liveWriteHooks()
-                .recordFlagDataFromCheck(player, this, violations, verboseData);
+        // The database row is NOT written here anymore: the [log] punishment
+        // command writes it (gated by its threshold:interval, exactly like
+        // the text-verbose path) — see the [log] branch in PunishmentManager.
+        // That makes [log] the single volume control for every check flavour.
         return true;
+    }
+
+    /** Structured verbose payload of the most recent binary flag, for the [log] command's row. */
+    public byte @Nullable [] lastFlagVerboseData() {
+        return lastFlagVerboseData;
     }
 
     private @NotNull BinaryVerbose lazyVerbose(@NotNull Verbose.Writer writer) {
