@@ -132,7 +132,6 @@ public final class MovementContext {
         if (u.lastTeleportTicks.hasOccurredSince(100)) appendKeyValue(sb, "recentTeleport", "true");
         if (u.lastVehicleSwitch.hasOccurredSince(100)) appendKeyValue(sb, "recentVehicleSwitch", "true");
         if (u.lastFlyingTicks.hasOccurredSince(100)) appendKeyValue(sb, "recentFlying", "true");
-        if (u.lastMovementSpeedChange.hasOccurredSince(3)) appendKeyValue(sb, "speedChange", String.format("%.3f", u.movementSpeedChangeUncertainty));
         appendKeyValue(sb, "dirs", String.format("%.4f/%.4f/%.4f/%.4f/%.4f/%.4f",
                 u.xNegativeUncertainty, u.xPositiveUncertainty, u.yNegativeUncertainty,
                 u.yPositiveUncertainty, u.zNegativeUncertainty, u.zPositiveUncertainty));
