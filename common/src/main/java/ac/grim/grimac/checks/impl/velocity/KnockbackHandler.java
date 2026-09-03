@@ -63,21 +63,22 @@ public class KnockbackHandler extends Check implements PacketSendListener, PostP
             // If the player is in a vehicle and the ID is for the player's vehicle, the player will take kb
             Vector3d playerVelocity = velocity.getVelocity();
 
-            // The server flushes its stale gravity-only velocity to the client whenever
-            // plugin-inflicted effect damage or an attack marks the player's velocity dirty
-            // (hurtMarked sync in ServerEntity#sendChanges / Player#causeExtraKnockback -
-            // the server never simulates the client-authoritative walk, so its "current"
-            // velocity is just accumulated gravity). The client REPLACES its velocity with
-            // that packet, wiping real horizontal momentum mid-stride, and the replacement
-            // lands off our transaction sandwich because nothing player-driven anchors it.
-            // The echo carries no gameplay information - genuine knockback always moves the
-            // player - so drop the packet instead of sandwiching a momentum wipe.
-            if (player.compensatedEntities.serverPlayerVehicle == null
-                    && Math.abs(playerVelocity.getX()) < 0.001 && Math.abs(playerVelocity.getZ()) < 0.001
-                    && isStaleGravityVelocity(playerVelocity.getY(),
-                    player.compensatedEntities.self.getAttributeValue(Attributes.GRAVITY))) {
-                event.setCancelled(true);
-                return;
+            // The server flushes its stale gravity-only velocity (0, -g*0.98, 0) to the client
+            // whenever plugin-inflicted effect damage marks the player's velocity dirty
+            // (hurtMarked sync in ServerEntity#sendChanges - the server never simulates the
+            // client-authoritative walk, so its "current" velocity is just one gravity tick).
+            // The client REPLACES its velocity with that packet, wiping real horizontal
+            // momentum mid-stride, and the replacement lands off our transaction sandwich
+            // because nothing player-driven anchors it. The echo carries no gameplay
+            // information - genuine knockback always moves the player - so drop the packet
+            // instead of sandwiching a momentum wipe.
+            if (player.compensatedEntities.serverPlayerVehicle == null) {
+                double echoGravity = player.compensatedEntities.self.getAttributeValue(Attributes.GRAVITY) * 0.98;
+                if (Math.abs(playerVelocity.getX()) < 0.001 && Math.abs(playerVelocity.getZ()) < 0.001
+                        && Math.abs(playerVelocity.getY() + echoGravity) < 0.001) {
+                    event.setCancelled(true);
+                    return;
+                }
             }
 
             // Blacklist problemated vector until mojang fixes a client-sided bug
@@ -119,25 +120,6 @@ public class KnockbackHandler extends Check implements PacketSendListener, PostP
             return new Pair<>(data, data.vector.clone());
         }
         return new Pair<>(null, null);
-    }
-
-    /**
-     * Whether Y matches the server's stale falling velocity - gravity applied to a resting
-     * entity for one or more ticks: y(1) = -g*0.98, y(n+1) = (y(n) - g)*0.98, converging
-     * to terminal velocity. Attacks and plugin-effect damage keep flushing the accumulated
-     * value, which wipes the client's horizontal momentum exactly like the single-tick
-     * echo. Real vertical knockback (launches, wind bursts) is positive or off the
-     * sequence and never matches.
-     */
-    private static boolean isStaleGravityVelocity(double y, double gravity) {
-        if (y >= -0.001) return false; // gravity echoes are always negative
-        double term = 0;
-        for (int i = 0; i < 256; i++) {
-            term = (term - gravity) * 0.98;
-            if (Math.abs(y - term) < 0.001) return true;
-            if (term < y - 0.001) return false; // the sequence only decreases; we already passed the target
-        }
-        return false; // converged to terminal velocity without matching
     }
 
     private void addPlayerKnockback(int entityID, int breadOne, @NotNull Vector3dm knockback) {
