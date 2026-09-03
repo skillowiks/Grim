@@ -13,7 +13,6 @@ import ac.grim.grimac.utils.data.VectorData;
 import ac.grim.grimac.utils.data.VelocityData;
 import ac.grim.grimac.utils.math.Vector3dm;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.attribute.Attributes;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
@@ -62,24 +61,6 @@ public class KnockbackHandler extends Check implements PacketSendListener, PostP
             // If the player isn't in a vehicle and the ID is for the player, the player will take kb
             // If the player is in a vehicle and the ID is for the player's vehicle, the player will take kb
             Vector3d playerVelocity = velocity.getVelocity();
-
-            // The server flushes its stale gravity-only velocity (0, -g*0.98, 0) to the client
-            // whenever plugin-inflicted effect damage marks the player's velocity dirty
-            // (hurtMarked sync in ServerEntity#sendChanges - the server never simulates the
-            // client-authoritative walk, so its "current" velocity is just one gravity tick).
-            // The client REPLACES its velocity with that packet, wiping real horizontal
-            // momentum mid-stride, and the replacement lands off our transaction sandwich
-            // because nothing player-driven anchors it. The echo carries no gameplay
-            // information - genuine knockback always moves the player - so drop the packet
-            // instead of sandwiching a momentum wipe.
-            if (player.compensatedEntities.serverPlayerVehicle == null) {
-                double echoGravity = player.compensatedEntities.self.getAttributeValue(Attributes.GRAVITY) * 0.98;
-                if (Math.abs(playerVelocity.getX()) < 0.001 && Math.abs(playerVelocity.getZ()) < 0.001
-                        && Math.abs(playerVelocity.getY() + echoGravity) < 0.001) {
-                    event.setCancelled(true);
-                    return;
-                }
-            }
 
             // Blacklist problemated vector until mojang fixes a client-sided bug
             if (playerVelocity.getY() == -0.04) {
