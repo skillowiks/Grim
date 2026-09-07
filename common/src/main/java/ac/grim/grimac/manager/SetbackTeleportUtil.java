@@ -6,6 +6,8 @@ import ac.grim.grimac.api.event.events.GrimTeleportEvent;
 import ac.grim.grimac.checks.GrimProcessor;
 import ac.grim.grimac.checks.impl.badpackets.BadPacketsN;
 import ac.grim.grimac.checks.type.PostPredictionListener;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
+import ac.grim.grimac.manager.deepdebug.InterferenceRecord;
 import ac.grim.grimac.platform.api.entity.GrimEntity;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.predictionengine.predictions.PredictionEngine;
@@ -167,22 +169,9 @@ public class SetbackTeleportUtil extends GrimProcessor implements PostPrediction
             lastWorldResync = System.currentTimeMillis();
         }
 
-        Vector3dm clientVel = lastKnownGoodPosition.vector.clone();
-
         Pair<VelocityData, Vector3dm> futureKb = player.checkManager.getKnockbackHandler().getFutureKnockback();
         VelocityData futureExplosion = player.checkManager.getExplosionHandler().getFutureExplosion();
-
-        // Velocity sets
-        // Don't let player reuse setback velocity
-        if (futureKb.first() != null && !futureKb.first().isSetback) {
-            clientVel = futureKb.second();
-        }
-
-        // Explosion adds
-        if (futureExplosion != null && (futureKb.first() == null
-                || (futureKb.first().transaction < futureExplosion.transaction && !futureKb.first().isSetback))) {
-            clientVel.add(futureExplosion.vector);
-        }
+        Vector3dm clientVel = SetbackVelocity.compose(lastKnownGoodPosition.vector, futureKb.first(), futureExplosion);
 
         Vector3d position = lastKnownGoodPosition.pos;
 
@@ -439,6 +428,13 @@ public class SetbackTeleportUtil extends GrimProcessor implements PostPrediction
                 teleportId
         );
         pendingTeleports.add(data);
+        if (DeepDebugManager.get().hasActiveSessions()) {
+            DeepDebugManager.get().recordInterference(player.uuid, new InterferenceRecord(
+                    System.currentTimeMillis(), InterferenceRecord.Kind.TELEPORT,
+                    "tracked id=" + teleportId + " transaction=" + transaction + " pos=" + data.getLocation()
+                            + " delta=" + velocity + " flags=" + flags.getMask() + " plugin=" + plugin,
+                    "Grim teleport tracking", false));
+        }
 
         Vector3d safePosition = new Vector3d(position.getX(), position.getY(), position.getZ());
 

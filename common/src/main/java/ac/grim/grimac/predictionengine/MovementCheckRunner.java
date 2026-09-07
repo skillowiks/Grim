@@ -5,6 +5,8 @@ import ac.grim.grimac.checks.GrimProcessor;
 import ac.grim.grimac.checks.impl.prediction.Phase;
 import ac.grim.grimac.checks.impl.vehicle.VehicleC;
 import ac.grim.grimac.manager.SetbackTeleportUtil;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
+import ac.grim.grimac.manager.deepdebug.InterferenceRecord;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.predictionengine.movementtick.MovementTickerCamel;
 import ac.grim.grimac.predictionengine.movementtick.MovementTickerHappyGhast;
@@ -126,6 +128,13 @@ public class MovementCheckRunner extends GrimProcessor {
         }
 
         player.uncertaintyHandler.lastTeleportTicks.reset();
+        if (DeepDebugManager.get().hasActiveSessions()) {
+            DeepDebugManager.get().recordInterference(player.uuid, new InterferenceRecord(
+                    System.currentTimeMillis(), InterferenceRecord.Kind.TELEPORT,
+                    "accepted id=" + (update.getTeleportData() == null ? "unknown" : update.getTeleportData().getTeleportId())
+                            + " transaction=" + player.lastTransactionReceived.get() + " velocity=" + player.clientVelocity,
+                    "Grim teleport prediction", false));
+        }
 
         // Teleports OVERRIDE explosions and knockback
         player.checkManager.getExplosionHandler().forceExempt();

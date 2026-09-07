@@ -6,6 +6,8 @@ import ac.grim.grimac.checks.Check;
 import ac.grim.grimac.checks.CheckData;
 import ac.grim.grimac.checks.type.PacketSendListener;
 import ac.grim.grimac.checks.type.PostPredictionListener;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
+import ac.grim.grimac.manager.deepdebug.InterferenceRecord;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.update.PredictionComplete;
 import ac.grim.grimac.utils.data.VectorData;
@@ -138,6 +140,12 @@ public class ExplosionHandler extends Check implements PacketSendListener, PostP
 
     public void addPlayerExplosion(int breadOne, Vector3d explosion) {
         firstBreadMap.add(new VelocityData(-1, breadOne, player.getSetbackTeleportUtil().isSendingSetback, new Vector3dm(explosion.getX(), explosion.getY(), explosion.getZ())));
+        if (DeepDebugManager.get().hasActiveSessions()) {
+            DeepDebugManager.get().recordInterference(player.uuid, new InterferenceRecord(
+                    System.currentTimeMillis(), InterferenceRecord.Kind.EXPLOSION,
+                    "packet knockback=" + explosion + " transaction=" + breadOne,
+                    "Grim explosion tracking", false));
+        }
     }
 
     public void setPointThree(boolean isPointThree) {

@@ -9,7 +9,7 @@ package ac.grim.grimac.manager.deepdebug;
 public record InterferenceRecord(long timeMs, Kind kind, String detail, String source, boolean cancelled) {
 
     public enum Kind {
-        VELOCITY, TELEPORT, POTION_EFFECT, GAME_MODE
+        VELOCITY, TELEPORT, EXPLOSION, POTION_EFFECT, GAME_MODE
     }
 
     @Override

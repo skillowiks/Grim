@@ -169,6 +169,8 @@ public final class DeepDebugSession {
                 + " hand=" + p.packetStateData.itemInUseHand
                 + " firstKB=" + (p.firstBreadKB == null ? "none" : p.firstBreadKB.vector)
                 + " likelyKB=" + (p.likelyKB == null ? "none" : p.likelyKB.vector)
+                + " firstExplosion=" + (p.firstBreadExplosion == null ? "none" : p.firstBreadExplosion.vector)
+                + " likelyExplosion=" + (p.likelyExplosions == null ? "none" : p.likelyExplosions.vector)
                 + " vectorType=" + p.predictedVelocity.vectorType);
     }
 
