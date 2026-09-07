@@ -36,7 +36,7 @@ public class NoSlow extends Check implements PostPredictionListener {
 
             if (bestOffset > offsetToFlag) {
                 if (flaggedLastTick) {
-                    flagWithSetback();
+                    flagWithSetback("offset=" + bestOffset + ", threshold=" + offsetToFlag);
                 }
                 flaggedLastTick = true;
             } else {

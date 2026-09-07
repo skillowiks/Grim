@@ -46,6 +46,7 @@ import ac.grim.grimac.events.packets.PacketEntityReplication;
 import ac.grim.grimac.events.packets.PacketPlayerAbilities;
 import ac.grim.grimac.events.packets.PacketWorldBorder;
 import ac.grim.grimac.internal.storage.verbose.VerboseRegistry;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.manager.init.start.SuperDebug;
 import ac.grim.grimac.platform.api.permissions.PermissionDefaultValue;
 import ac.grim.grimac.player.GrimPlayer;
@@ -71,6 +72,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CheckManager implements BasicReloadable {
     private static final AtomicBoolean initedAtomic = new AtomicBoolean(false);
     private static boolean inited;
+    private final GrimPlayer player;
     public final ClassToInstanceMap<AbstractProcessor> processors;
     public final Collection<AbstractCheck> checks;
 
@@ -89,6 +91,7 @@ public class CheckManager implements BasicReloadable {
     private final PostPredictionListener[] postPredictionListeners;
 
     public CheckManager(GrimPlayer player) {
+        this.player = player;
         processors = new ImmutableClassToInstanceMap.Builder<AbstractProcessor>()
                 .put(CompensatedCameraEntity.class, player.cameraEntity)
                 .put(ChatA.class, new ChatA(player))
@@ -381,6 +384,10 @@ public class CheckManager implements BasicReloadable {
     public void onPredictionFinish(final PredictionComplete complete) {
         for (PostPredictionListener check : postPredictionListeners) {
             check.onPredictionComplete(complete);
+        }
+        if (DeepDebugManager.get().hasActiveSessions()) {
+            final var session = DeepDebugManager.get().getSession(player.uuid);
+            if (session != null) session.recordMovement(complete.isChecked());
         }
     }
 

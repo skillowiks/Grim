@@ -2,6 +2,8 @@ package ac.grim.grimac.manager.deepdebug;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.checks.Check;
+import ac.grim.grimac.checks.impl.movement.NoSlow;
+import ac.grim.grimac.checks.impl.prediction.OffsetHandler;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
@@ -46,6 +48,7 @@ public final class DeepDebugSession {
     private final List<FlagRecord> flags = Collections.synchronizedList(new ArrayList<>());
     private final List<InterferenceRecord> interference = Collections.synchronizedList(new ArrayList<>());
     private final List<String> attributeAnomalies = Collections.synchronizedList(new ArrayList<>());
+    private final MovementTraceRecorder movementTraces = new MovementTraceRecorder();
     public final SprintChurn sprintChurn = new SprintChurn();
     private final Set<Sender> listeners = new CopyOnWriteArraySet<>();
 
@@ -88,6 +91,9 @@ public final class DeepDebugSession {
     void recordFlag(GrimPlayer player, Check check, Supplier<String> verbose) {
         if (stopped) return;
         String rendered = safeGet(verbose);
+        if (check instanceof OffsetHandler || check instanceof NoSlow) {
+            movementTraces.flag(check.getDisplayName() + " " + rendered);
+        }
         double offset = player.actualMovement != null && player.predictedVelocity != null
                 ? player.predictedVelocity.vector.distance(player.actualMovement) : -1;
         MovementContext movement = MovementContext.snapshot(player, offset);
@@ -145,6 +151,29 @@ public final class DeepDebugSession {
     public long durationMs() {
         long end = stopped ? stoppedAtMs : System.currentTimeMillis();
         return Math.max(0, end - startedAtMs);
+    }
+
+    /** Runs after all prediction checks, so both Simulation and NoSlow mark this movement. */
+    public void recordMovement(boolean checked) {
+        if (stopped) return;
+        GrimPlayer p = target;
+        if (p.predictedVelocity == null || p.actualMovement == null) return;
+        movementTraces.movement("timeMs=" + System.currentTimeMillis() + " checked=" + checked
+                + " transaction=" + p.lastTransactionReceived.get()
+                + " pos=" + p.x + "," + p.y + "," + p.z + " yaw=" + p.yaw
+                + " predicted=" + p.predictedVelocity.vector + " actual=" + p.actualMovement
+                + " startVel=" + p.startTickClientVel + " speed=" + p.speed + " friction=" + p.friction
+                + " ground=" + p.onGround + "/" + p.lastOnGround + " sprint=" + p.isSprinting
+                + " useItem=" + p.packetStateData.isSlowedByUsingItem()
+                + " useTransaction=" + p.packetStateData.slowedByUsingItemTransaction
+                + " hand=" + p.packetStateData.itemInUseHand
+                + " firstKB=" + (p.firstBreadKB == null ? "none" : p.firstBreadKB.vector)
+                + " likelyKB=" + (p.likelyKB == null ? "none" : p.likelyKB.vector)
+                + " vectorType=" + p.predictedVelocity.vectorType);
+    }
+
+    public List<String> movementTracesSnapshot() {
+        return movementTraces.snapshot();
     }
 
     private void broadcast(FlagRecord record) {
