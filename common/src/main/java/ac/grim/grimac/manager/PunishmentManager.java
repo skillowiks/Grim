@@ -151,10 +151,7 @@ public class PunishmentManager implements ConfigReloadable {
                         verboseListeners = GrimAPI.INSTANCE.getAlertManager().sendVerbose(MessageUtil.miniMessage(listenerCmd), null);
                     }
                     if (violationCount >= command.threshold) {
-                        boolean shouldRun = command.interval == 0
-                                ? command.executeCount == 0
-                                : violationCount >= command.nextBoundary;
-                        if (shouldRun) {
+                        if (command.canExecute(violationCount)) {
                             String renderedVerbose = safeGet(verbose);
                             String cmd = replaceAlertPlaceholders(command.command, vl, check, renderedVerbose);
                             boolean canceled = COMMAND_CHANNEL.fire(player, check, renderedVerbose, cmd);
@@ -265,5 +262,13 @@ class ParsedCommand {
         this.interval = interval;
         this.command = command;
         this.nextBoundary = threshold;
+    }
+
+    boolean canExecute(int violationCount) {
+        if (violationCount < threshold) return false;
+        // 1:1 means every eligible flag, including when expiry leaves the
+        // rolling count at or below the boundary reached by previous flags.
+        if (threshold == 1 && interval == 1) return true;
+        return interval == 0 ? executeCount == 0 : violationCount >= nextBoundary;
     }
 }

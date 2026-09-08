@@ -1,0 +1,1257 @@
+# Профиль BreakProject для нашей сборки Grim simfix11.
+# Каждая включённая проверка имеет отдельный счётчик; окно — 300 секунд.
+# N:M — первый запуск на N активных флагах, затем на N+M, N+2M и т. д.
+# Это количество флагов, НЕ секундный cooldown. 1:1 — каждое срабатывание.
+# [log] сохраняет нарушение в БД и /grim history.
+# Без [log]: Simulation, GroundSpoof, NoFall и все разновидности Timer.
+# Остальные включённые проверки: 1:1 [log], уведомления — реже.
+# Удалять шумные проверки из checks не нужно: это отключит их.
+# Бан-команды Reach/Hitboxes сохранены из пользовательского конфига.
+# Заменить СУЩЕСТВУЮЩИЙ punishments.yml целиком, не добавлять к старым группам.
+# Подробности и необходимые настройки: README.ru.md рядом с этим файлом.
+
+Punishments:
+  Simulation:
+    remove-violations-after: 300
+    checks:
+      - "Simulation"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  GroundSpoof:
+    remove-violations-after: 300
+    checks:
+      - "GroundSpoof"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  NoFall:
+    remove-violations-after: 300
+    checks:
+      - "NoFall"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  Timer:
+    remove-violations-after: 300
+    checks:
+      - "Timer"
+      - "!NegativeTimer"
+      - "!TickTimer"
+      - "!TimerLimit"
+      - "!VehicleTimer"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  TimerLimit:
+    remove-violations-after: 300
+    checks:
+      - "TimerLimit"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  NegativeTimer:
+    remove-violations-after: 300
+    checks:
+      - "NegativeTimer"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  TickTimer:
+    remove-violations-after: 300
+    checks:
+      - "TickTimer"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  VehicleTimer:
+    remove-violations-after: 300
+    checks:
+      - "VehicleTimer"
+    commands:
+      - "300:300 [alert]"
+      - "1000:1000 [webhook]"
+      - "1000:1000 [proxy]"
+
+  NoSlow:
+    remove-violations-after: 300
+    checks:
+      - "NoSlow"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  AntiKB:
+    remove-violations-after: 300
+    checks:
+      - "AntiKB"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  AntiExplosion:
+    remove-violations-after: 300
+    checks:
+      - "AntiExplosion"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  Reach:
+    remove-violations-after: 300
+    checks:
+      - "Reach"
+    commands:
+      - "1:1 [log]"
+      - "1:25 [alert]"
+      - "5:50 [webhook]"
+      - "5:50 [proxy]"
+      - "10:5 bban-ip %player% 14d -p --sender-name=&fꐞ&f Использование &7стороннего&f ПО."
+
+  Hitboxes:
+    remove-violations-after: 300
+    checks:
+      - "Hitboxes"
+    commands:
+      - "1:1 [log]"
+      - "1:25 [alert]"
+      - "5:50 [webhook]"
+      - "5:50 [proxy]"
+      - "10:5 bban-ip %player% 14d -p --sender-name=&fꐞ&f Использование &7стороннего&f ПО."
+
+  Post:
+    remove-violations-after: 300
+    checks:
+      - "Post"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  TransactionOrder:
+    remove-violations-after: 300
+    checks:
+      - "TransactionOrder"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  AimDuplicateLook:
+    remove-violations-after: 300
+    checks:
+      - "AimDuplicateLook"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  AimModulo360:
+    remove-violations-after: 300
+    checks:
+      - "AimModulo360"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  AirLiquidBreak:
+    remove-violations-after: 300
+    checks:
+      - "AirLiquidBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  AirLiquidPlace:
+    remove-violations-after: 300
+    checks:
+      - "AirLiquidPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  BadPacketsA:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsA"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsB:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsB"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsC:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsC"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsD:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsD"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsE:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsE"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsF:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsF"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsG:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsG"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsH:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsH"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsI:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsI"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsJ:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsJ"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsK:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsK"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsL:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsL"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsM:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsM"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsN:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsN"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsO:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsO"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsP:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsP"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsQ:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsQ"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsR:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsR"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsS:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsS"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsU:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsU"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsV:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsV"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsX:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsX"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsY:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsY"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  BadPacketsZ:
+    remove-violations-after: 300
+    checks:
+      - "BadPacketsZ"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  ChatA:
+    remove-violations-after: 300
+    checks:
+      - "ChatA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ChatB:
+    remove-violations-after: 300
+    checks:
+      - "ChatB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ChatC:
+    remove-violations-after: 300
+    checks:
+      - "ChatC"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ChatD:
+    remove-violations-after: 300
+    checks:
+      - "ChatD"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  CrashA:
+    remove-violations-after: 300
+    checks:
+      - "CrashA"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashB:
+    remove-violations-after: 300
+    checks:
+      - "CrashB"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashC:
+    remove-violations-after: 300
+    checks:
+      - "CrashC"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashD:
+    remove-violations-after: 300
+    checks:
+      - "CrashD"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashE:
+    remove-violations-after: 300
+    checks:
+      - "CrashE"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashF:
+    remove-violations-after: 300
+    checks:
+      - "CrashF"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashG:
+    remove-violations-after: 300
+    checks:
+      - "CrashG"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashH:
+    remove-violations-after: 300
+    checks:
+      - "CrashH"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  CrashI:
+    remove-violations-after: 300
+    checks:
+      - "CrashI"
+    commands:
+      - "1:1 [log]"
+      - "10:50 [alert]"
+      - "40:100 [webhook]"
+      - "40:100 [proxy]"
+
+  DuplicateRotPlace:
+    remove-violations-after: 300
+    checks:
+      - "DuplicateRotPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraA:
+    remove-violations-after: 300
+    checks:
+      - "ElytraA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraB:
+    remove-violations-after: 300
+    checks:
+      - "ElytraB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraC:
+    remove-violations-after: 300
+    checks:
+      - "ElytraC"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraD:
+    remove-violations-after: 300
+    checks:
+      - "ElytraD"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraE:
+    remove-violations-after: 300
+    checks:
+      - "ElytraE"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraF:
+    remove-violations-after: 300
+    checks:
+      - "ElytraF"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraG:
+    remove-violations-after: 300
+    checks:
+      - "ElytraG"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraH:
+    remove-violations-after: 300
+    checks:
+      - "ElytraH"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ElytraI:
+    remove-violations-after: 300
+    checks:
+      - "ElytraI"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ExploitA:
+    remove-violations-after: 300
+    checks:
+      - "ExploitA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  ExploitB:
+    remove-violations-after: 300
+    checks:
+      - "ExploitB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  FabricatedPlace:
+    remove-violations-after: 300
+    checks:
+      - "FabricatedPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  FarBreak:
+    remove-violations-after: 300
+    checks:
+      - "FarBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  FarPlace:
+    remove-violations-after: 300
+    checks:
+      - "FarPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  FastBreak:
+    remove-violations-after: 300
+    checks:
+      - "FastBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  InvalidBreak:
+    remove-violations-after: 300
+    checks:
+      - "InvalidBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  InvalidInteractCursor:
+    remove-violations-after: 300
+    checks:
+      - "InvalidInteractCursor"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  InvalidInteractTarget:
+    remove-violations-after: 300
+    checks:
+      - "InvalidInteractTarget"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  InvalidPlaceCursor:
+    remove-violations-after: 300
+    checks:
+      - "InvalidPlaceCursor"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  InvalidPlaceFace:
+    remove-violations-after: 300
+    checks:
+      - "InvalidPlaceFace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsA:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsB:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsC:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsC"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsD:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsD"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsE:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsE"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsF:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsF"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiActionsG:
+    remove-violations-after: 300
+    checks:
+      - "MultiActionsG"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiBreak:
+    remove-violations-after: 300
+    checks:
+      - "MultiBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiInteractA:
+    remove-violations-after: 300
+    checks:
+      - "MultiInteractA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiInteractB:
+    remove-violations-after: 300
+    checks:
+      - "MultiInteractB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  MultiPlace:
+    remove-violations-after: 300
+    checks:
+      - "MultiPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  NoSwingBreak:
+    remove-violations-after: 300
+    checks:
+      - "NoSwingBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  PacketOrderA:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderA"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderB:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderB"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderC:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderC"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderD:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderD"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderE:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderE"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderF:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderF"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderG:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderG"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderH:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderH"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderI:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderI"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderJ:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderJ"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderK:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderK"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderL:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderL"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderM:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderM"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderN:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderN"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PacketOrderO:
+    remove-violations-after: 300
+    checks:
+      - "PacketOrderO"
+    commands:
+      - "1:1 [log]"
+      - "50:100 [alert]"
+      - "100:200 [webhook]"
+      - "100:200 [proxy]"
+
+  PositionBreakA:
+    remove-violations-after: 300
+    checks:
+      - "PositionBreakA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  PositionBreakB:
+    remove-violations-after: 300
+    checks:
+      - "PositionBreakB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  PositionPlace:
+    remove-violations-after: 300
+    checks:
+      - "PositionPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  RotationBreak:
+    remove-violations-after: 300
+    checks:
+      - "RotationBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  RotationPlace:
+    remove-violations-after: 300
+    checks:
+      - "RotationPlace"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SelfInteract:
+    remove-violations-after: 300
+    checks:
+      - "SelfInteract"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintA:
+    remove-violations-after: 300
+    checks:
+      - "SprintA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintB:
+    remove-violations-after: 300
+    checks:
+      - "SprintB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintC:
+    remove-violations-after: 300
+    checks:
+      - "SprintC"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintD:
+    remove-violations-after: 300
+    checks:
+      - "SprintD"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintE:
+    remove-violations-after: 300
+    checks:
+      - "SprintE"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintF:
+    remove-violations-after: 300
+    checks:
+      - "SprintF"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  SprintG:
+    remove-violations-after: 300
+    checks:
+      - "SprintG"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  VehicleA:
+    remove-violations-after: 300
+    checks:
+      - "VehicleA"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  VehicleB:
+    remove-violations-after: 300
+    checks:
+      - "VehicleB"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  VehicleC:
+    remove-violations-after: 300
+    checks:
+      - "VehicleC"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  VehicleD:
+    remove-violations-after: 300
+    checks:
+      - "VehicleD"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  VehicleE:
+    remove-violations-after: 300
+    checks:
+      - "VehicleE"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  VehicleF:
+    remove-violations-after: 300
+    checks:
+      - "VehicleF"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  WrongBreak:
+    remove-violations-after: 300
+    checks:
+      - "WrongBreak"
+    commands:
+      - "1:1 [log]"
+      - "20:50 [alert]"
+      - "50:100 [webhook]"
+      - "50:100 [proxy]"
+
+  # Phase не был включён исходным конфигом. Сохраняем это состояние.
+  # Для его включения потребуется явно добавить "Phase" в checks и команды.
+  Phase:
+    remove-violations-after: 300
+    checks: []
+    commands: []
