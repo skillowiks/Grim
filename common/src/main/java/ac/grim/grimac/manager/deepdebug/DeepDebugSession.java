@@ -7,10 +7,13 @@ import ac.grim.grimac.checks.impl.prediction.OffsetHandler;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
+import ac.grim.grimac.utils.enums.FluidTag;
+import ac.grim.grimac.utils.latency.CompensatedWorld;
 import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemConsumable;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemUseEffects;
 import com.github.retrooper.packetevents.protocol.item.ItemStack;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.Nullable;
@@ -181,6 +184,11 @@ public final class DeepDebugSession {
                 + " lastSprinting=" + p.lastSprinting
                 + " sprintAttribute=" + p.compensatedEntities.hasSprintingAttributeEnabled
                 + " movementThreshold=" + p.getMovementThreshold()
+                + " water=" + p.wasTouchingWater + " previousWater=" + p.wasWasTouchingWater + " lava=" + p.wasTouchingLava
+                + " swimming=" + p.isSwimming + " wasSwimming=" + p.wasSwimming + " pose=" + p.pose
+                + " waterHeight=" + p.getFluidHeight(FluidTag.WATER) + " lavaHeight=" + p.getFluidHeight(FluidTag.LAVA)
+                + " depthStrider=" + p.depthStriderLevel
+                + " baseTickAddition=" + p.baseTickAddition + " baseTickWaterPushing=" + p.baseTickWaterPushing
                 + " useItem=" + p.packetStateData.isSlowedByUsingItem()
                 + " useTransaction=" + p.packetStateData.slowedByUsingItemTransaction
                 + " hand=" + p.packetStateData.itemInUseHand
@@ -204,7 +212,34 @@ public final class DeepDebugSession {
                 + " likelyKB=" + (p.likelyKB == null ? "none" : p.likelyKB.vector)
                 + " firstExplosion=" + (p.firstBreadExplosion == null ? "none" : p.firstBreadExplosion.vector)
                 + " likelyExplosion=" + (p.likelyExplosions == null ? "none" : p.likelyExplosions.vector)
-                + " vectorType=" + p.predictedVelocity.vectorType);
+                + " vectorType=" + p.predictedVelocity.vectorType
+                + " fluidBlocks=" + captureFluidBlocks(p));
+    }
+
+    private static String captureFluidBlocks(GrimPlayer player) {
+        try {
+            return FluidDebugSnapshot.capture(player.boundingBox.minX, player.boundingBox.minY, player.boundingBox.minZ,
+                player.boundingBox.maxX, player.boundingBox.maxY, player.boundingBox.maxZ, new FluidDebugSnapshot.BlockSource() {
+                    @Override
+                    public int globalIdAt(int x, int y, int z) {
+                        // Keep the missing-column/section markers instead of presenting them as known air.
+                        return player.compensatedWorld.getBlockStateId(x, y, z);
+                    }
+
+                    @Override
+                    public String describe(int globalId) {
+                        return switch (globalId) {
+                            case -1 -> "unavailable:negative-y-on-legacy-world";
+                            case -2 -> "unavailable:column-or-height";
+                            case -3 -> "unavailable:section-or-read";
+                            default -> WrappedBlockState.getByGlobalId(CompensatedWorld.blockVersion, globalId).toString();
+                        };
+                    }
+                });
+        } catch (RuntimeException failure) {
+            // A diagnostic cache/mapping read must not interrupt prediction bookkeeping.
+            return "{phase=endpointCachedWorld,unavailable=" + failure.getClass().getSimpleName() + "}";
+        }
     }
 
     private static String itemType(@Nullable ItemStack item) {

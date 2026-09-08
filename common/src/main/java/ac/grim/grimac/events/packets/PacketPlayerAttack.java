@@ -122,29 +122,32 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
 
         if (entity != null && (!entity.isLivingEntity || entity.getType() == EntityTypes.PLAYER || entity.getType() == EntityTypes.PAINTING
                 || entity.getType() == EntityTypes.ENDER_DRAGON && player.getClientVersion().isOlderThan(ClientVersion.V_1_21_2))) {
-            int knockbackLevel = player.getClientVersion().isOlderThan(ClientVersion.V_1_21) && heldItem != null
+            int knockbackEnchantment = player.getClientVersion().isOlderThan(ClientVersion.V_1_21) && heldItem != null
                     ? heldItem.getEnchantmentLevel(EnchantmentTypes.KNOCKBACK)
                     : 0;
-            final boolean hasNegativeKB = knockbackLevel < 0;
+            float knockback = clientAttackKnockback(player.getClientVersion(), knockbackEnchantment,
+                    player.compensatedEntities.self.getAttributeValue(Attributes.ATTACK_KNOCKBACK));
+            final boolean hasNegativeKB = knockback < 0;
 
             final boolean isLegacyPlayer = player.getClientVersion().isOlderThanOrEquals(ClientVersion.V_1_8);
             // assume cooldown is full on 1.8 servers
             final boolean sufficientCooldownProgress = isLegacyPlayer || player.attackCooldown.getMinimumProgress() > 0.9F;
 
             if (!isLegacyPlayer) {
-                knockbackLevel = Math.max(knockbackLevel, 0);
+                knockback = Math.max(knockback, 0);
             }
 
             // 1.8 players who are packet sprinting WILL get slowed
             // 1.9+ players who are packet sprinting might not, based on attack cooldown
-            // Players with knockback enchantments always get slowed
+            // A positive client-side knockback bonus slows the attacker even
+            // without sprinting or a fully charged attack.
 
-            if (player.lastSprinting && !hasNegativeKB && sufficientCooldownProgress || knockbackLevel > 0) {
+            if (player.lastSprinting && !hasNegativeKB && sufficientCooldownProgress || knockback > 0) {
                 player.minAttackSlow++;
                 player.maxAttackSlow++;
 
-                // Players cannot slow themselves twice in one tick without a knockback sword
-                if (knockbackLevel == 0) {
+                // Only sprint-based knockback is limited to one slowdown per tick.
+                if (knockback == 0) {
                     player.maxAttackSlow = player.minAttackSlow = 1;
                 }
 
@@ -176,6 +179,18 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
             player.attackCooldown.reset();
         }
         return outcome;
+    }
+
+    static float clientAttackKnockback(ClientVersion version, int enchantmentLevel, double attributeValue) {
+        if (version.isOlderThan(ClientVersion.V_1_21)) {
+            return enchantmentLevel;
+        }
+
+        // From 1.21 enchantment effects run only on the server. The client reads
+        // the compensated attribute instead, which stays zero unless received.
+        float knockback = (float) attributeValue;
+        // 1.21.11 moved the factor from Player.attack into LivingEntity.getKnockback.
+        return version.isNewerThanOrEquals(ClientVersion.V_1_21_11) ? knockback / 2.0F : knockback;
     }
 
     private boolean isInvalidEntity(PacketReceiveEvent event, GrimPlayer player, int entityId) {

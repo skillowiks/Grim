@@ -176,6 +176,31 @@ class ValuedAttributeTest {
         assertEquals(0.3, value.get(), EPSILON);
     }
 
+    @Test
+    void receivedAttackKnockbackUsesModifiersAndReturnsToZeroWhenRemoved() {
+        ValuedAttribute value = ValuedAttribute.ranged(Attributes.ATTACK_KNOCKBACK, 0, 0, 5);
+        assertEquals(0, value.get());
+
+        Property packet = new Property(Attributes.ATTACK_KNOCKBACK, 0, List.of(
+                named("custom_attack_knockback", 0.25, ADDITION)));
+        assertEquals(0.25, value.with(packet));
+        assertEquals(1, packet.getModifiers().size());
+
+        assertEquals(0, value.with(new Property(Attributes.ATTACK_KNOCKBACK, 0, List.of())));
+        value.with(packet);
+        value.reset();
+        assertEquals(0, value.get());
+    }
+
+    @Test
+    void receivedAttackKnockbackClampsToTheClientRange() {
+        ValuedAttribute value = ValuedAttribute.ranged(Attributes.ATTACK_KNOCKBACK, 0, 0, 5);
+        assertEquals(0, value.with(new Property(Attributes.ATTACK_KNOCKBACK, -1, List.of())));
+        assertEquals(5, value.with(new Property(Attributes.ATTACK_KNOCKBACK, 10, List.of())));
+        assertEquals(0, value.with(new Property(Attributes.ATTACK_KNOCKBACK, 2, List.of(
+                named("negative_attack_knockback", -3, ADDITION)))));
+    }
+
     private static ValuedAttribute movementSpeed() {
         return ValuedAttribute.ranged(Attributes.MOVEMENT_SPEED, 0.1, 0, 1024);
     }

@@ -73,6 +73,10 @@ public class PacketEntitySelf extends PacketEntity {
         movementSpeed.with(new WrapperPlayServerUpdateAttributes.Property(Attributes.MOVEMENT_SPEED, 0.1f, new ArrayList<>()));
         trackAttribute(movementSpeed);
         trackAttribute(ValuedAttribute.ranged(Attributes.ATTACK_DAMAGE, 2, 0, 2048)); // NOTE: Not synced to client currently.
+        // Not normally synced, but custom servers can send it. Since 1.21 the
+        // client uses this attribute for the attacker's knockback slowdown.
+        trackAttribute(ValuedAttribute.ranged(Attributes.ATTACK_KNOCKBACK, 0, 0, 5)
+                .requiredVersion(player, ClientVersion.V_1_21));
         trackAttribute(ValuedAttribute.ranged(Attributes.ATTACK_SPEED, 4, 0, 1024)
                 .requiredVersion(player, ClientVersion.V_1_9)
                 .withGetRewriter(value -> PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_9) ? 20 : value));
