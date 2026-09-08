@@ -86,6 +86,8 @@ dependencies {
     compileOnly(libs.luckperms)
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    // Older supported servers provide Gson without JsonParser.parseString().
+    testImplementation("com.google.code.gson:gson:2.8.0")
     testImplementation(libs.packetevents.api)
     testImplementation(libs.netty)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

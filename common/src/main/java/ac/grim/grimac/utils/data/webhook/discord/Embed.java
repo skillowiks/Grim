@@ -50,7 +50,7 @@ public class Embed implements JsonSerializable {
         if ((element = json.get("color")) != null) color(element.getAsInt());
         if ((element = json.get("footer")) != null) footer(new EmbedFooter(element));
         if ((element = json.get("image")) != null) imageURL(element.getAsJsonObject().get("url").getAsString());
-        if ((element = json.get("thumbnail")) != null) imageURL(element.getAsJsonObject().get("url").getAsString());
+        if ((element = json.get("thumbnail")) != null) thumbnailURL(element.getAsJsonObject().get("url").getAsString());
         if ((element = json.get("author")) != null) author(new EmbedAuthor(element));
         if ((element = json.get("fields")) != null) fields(deserializeArray(element.getAsJsonArray(), EmbedField[]::new, EmbedField::new));
     }
@@ -100,7 +100,7 @@ public class Embed implements JsonSerializable {
         EmbedField[] newFields = new EmbedField[fields().length + fields.length];
 
         System.arraycopy(fields(), 0, newFields, 0, fields().length);
-        System.arraycopy(fields, fields().length, newFields, fields().length, fields.length);
+        System.arraycopy(fields, 0, newFields, fields().length, fields.length);
 
         return fields(newFields);
     }
@@ -112,6 +112,21 @@ public class Embed implements JsonSerializable {
             this.footer = footer;
         }
         return this;
+    }
+
+    /** The text fields included in Discord's combined, per-message embed limit. */
+    int textLength() {
+        int length = description().length();
+        if (title() != null) length += title().length();
+        if (footer() != null) length += footer().text().length();
+        if (author() != null) length += author().name().length();
+        if (fields() != null) {
+            for (EmbedField field : fields()) {
+                Objects.requireNonNull(field, "field");
+                length += field.name().length() + field.value().length();
+            }
+        }
+        return length;
     }
 
     @Override

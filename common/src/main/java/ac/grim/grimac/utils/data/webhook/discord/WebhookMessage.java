@@ -21,6 +21,7 @@ import static ac.grim.grimac.utils.data.json.JsonSerializable.serializeArray;
 public class WebhookMessage implements JsonSerializable {
     public static final int MAX_CONTENT_LENGTH = 2000;
     public static final int MAX_EMBEDS = 10;
+    public static final int MAX_EMBED_TEXT_LENGTH = 6000;
 
     private @Nullable String content;
     private @Nullable String username;
@@ -73,13 +74,23 @@ public class WebhookMessage implements JsonSerializable {
         Embed[] newEmbeds = new Embed[embeds().length + embeds.length];
 
         System.arraycopy(embeds(), 0, newEmbeds, 0, embeds().length);
-        System.arraycopy(embeds, embeds().length, newEmbeds, embeds().length, embeds.length);
+        System.arraycopy(embeds, 0, newEmbeds, embeds().length, embeds.length);
 
         return embeds(newEmbeds);
     }
 
     @Override
     public @NotNull JsonObject toJson() {
+        // Embeds are mutable, so validate the complete message at serialization time.
+        int embedTextLength = 0;
+        if (embeds() != null) {
+            for (Embed embed : embeds()) {
+                embedTextLength += Objects.requireNonNull(embed, "embed").textLength();
+            }
+        }
+        if (embedTextLength > MAX_EMBED_TEXT_LENGTH) {
+            throw new IllegalArgumentException("Webhook embed text too long, " + embedTextLength + " > " + MAX_EMBED_TEXT_LENGTH);
+        }
         JsonObject json = new JsonObject();
         if (content() != null) json.addProperty("content", content());
         if (username() != null) json.addProperty("username", username());
