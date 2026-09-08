@@ -4,7 +4,7 @@
 # Это количество флагов, НЕ секундный cooldown. 1:1 — каждое срабатывание.
 # [log] сохраняет нарушение в БД и /grim history.
 # Без [log]: Simulation, GroundSpoof, NoFall и все разновидности Timer.
-# Остальные включённые проверки: 1:1 [log].
+# BadPackets: 5:5 [log] и 5:5 [alert]; остальные включённые проверки: 1:1 [log].
 # Reach/Hitboxes: 1:1 [alert]; прочие уведомления — реже.
 # Удалять шумные проверки из checks не нужно: это отключит их.
 # Бан-команды Reach/Hitboxes сохранены из пользовательского конфига.
@@ -205,8 +205,8 @@ Punishments:
     checks:
       - "BadPacketsA"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -215,8 +215,8 @@ Punishments:
     checks:
       - "BadPacketsB"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -225,8 +225,8 @@ Punishments:
     checks:
       - "BadPacketsC"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -235,8 +235,8 @@ Punishments:
     checks:
       - "BadPacketsD"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -245,8 +245,8 @@ Punishments:
     checks:
       - "BadPacketsE"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -255,8 +255,8 @@ Punishments:
     checks:
       - "BadPacketsF"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -265,8 +265,8 @@ Punishments:
     checks:
       - "BadPacketsG"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -275,8 +275,8 @@ Punishments:
     checks:
       - "BadPacketsH"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -285,8 +285,8 @@ Punishments:
     checks:
       - "BadPacketsI"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -295,8 +295,8 @@ Punishments:
     checks:
       - "BadPacketsJ"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -305,8 +305,8 @@ Punishments:
     checks:
       - "BadPacketsK"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -315,8 +315,8 @@ Punishments:
     checks:
       - "BadPacketsL"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -325,8 +325,8 @@ Punishments:
     checks:
       - "BadPacketsM"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -335,8 +335,8 @@ Punishments:
     checks:
       - "BadPacketsN"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -345,8 +345,8 @@ Punishments:
     checks:
       - "BadPacketsO"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -355,8 +355,8 @@ Punishments:
     checks:
       - "BadPacketsP"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -365,8 +365,8 @@ Punishments:
     checks:
       - "BadPacketsQ"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -375,8 +375,8 @@ Punishments:
     checks:
       - "BadPacketsR"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -385,8 +385,8 @@ Punishments:
     checks:
       - "BadPacketsS"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -395,8 +395,8 @@ Punishments:
     checks:
       - "BadPacketsU"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -405,8 +405,8 @@ Punishments:
     checks:
       - "BadPacketsV"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -415,8 +415,8 @@ Punishments:
     checks:
       - "BadPacketsX"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -425,8 +425,8 @@ Punishments:
     checks:
       - "BadPacketsY"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
@@ -435,8 +435,8 @@ Punishments:
     checks:
       - "BadPacketsZ"
     commands:
-      - "1:1 [log]"
-      - "10:50 [alert]"
+      - "5:5 [log]"
+      - "5:5 [alert]"
       - "40:100 [webhook]"
       - "40:100 [proxy]"
 
