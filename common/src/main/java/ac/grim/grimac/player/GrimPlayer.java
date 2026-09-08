@@ -237,6 +237,8 @@ public class GrimPlayer implements GrimUser {
     public @Nullable VelocityData likelyExplosions;
     public int minAttackSlow;
     public int maxAttackSlow;
+    // Latest transaction observed by an attack contributing to the pending slowdown.
+    public int lastAttackSlowTransaction = Integer.MAX_VALUE;
     public @MonotonicNonNull GameMode gamemode;
     public @MonotonicNonNull DimensionType dimensionType;
     public @Nullable String worldName;

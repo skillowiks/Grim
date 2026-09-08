@@ -201,6 +201,7 @@ public final class DeepDebugSession {
                 + " slowMovement=" + p.isSlowMovement + " sneakingMultiplier=" + p.sneakingSpeedMultiplier
                 + " flipItem=" + p.predictedVelocity.isFlipItem() + " flipSneak=" + p.predictedVelocity.isFlipSneaking()
                 + " attackSlow=" + p.minAttackSlow + "/" + p.maxAttackSlow
+                + " attackSlowTransaction=" + p.lastAttackSlowTransaction
                 + " attackSlowVector=" + p.predictedVelocity.isAttackSlow()
                 + " predictedInput=" + p.predictedVelocity.input
                 + " nextVelocity=" + p.clientVelocity
@@ -209,7 +210,9 @@ public final class DeepDebugSession {
                 + "/" + p.packetStateData.didLastLastMovementIncludePosition
                 + " skippedTick=" + p.skippedTickInActualMovement
                 + " firstKB=" + (p.firstBreadKB == null ? "none" : p.firstBreadKB.vector)
+                + " firstKBTransaction=" + (p.firstBreadKB == null ? "none" : p.firstBreadKB.transaction)
                 + " likelyKB=" + (p.likelyKB == null ? "none" : p.likelyKB.vector)
+                + " likelyKBTransaction=" + (p.likelyKB == null ? "none" : p.likelyKB.transaction)
                 + " firstExplosion=" + (p.firstBreadExplosion == null ? "none" : p.firstBreadExplosion.vector)
                 + " likelyExplosion=" + (p.likelyExplosions == null ? "none" : p.likelyExplosions.vector)
                 + " vectorType=" + p.predictedVelocity.vectorType

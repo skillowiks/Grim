@@ -127,6 +127,7 @@ public class MovementCheckRunner extends GrimProcessor {
                     // including attacks whose movement tick was cancelled before prediction.
                     player.minAttackSlow = 0;
                     player.maxAttackSlow = 0;
+                    player.lastAttackSlowTransaction = Integer.MAX_VALUE;
                 }
             }
         }
@@ -690,6 +691,7 @@ public class MovementCheckRunner extends GrimProcessor {
 
         player.minAttackSlow = 0;
         player.maxAttackSlow = 0;
+        player.lastAttackSlowTransaction = Integer.MAX_VALUE;
 
         player.likelyKB = null;
         player.firstBreadKB = null;

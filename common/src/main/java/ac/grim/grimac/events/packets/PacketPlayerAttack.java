@@ -145,6 +145,7 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
             if (player.lastSprinting && !hasNegativeKB && sufficientCooldownProgress || knockback > 0) {
                 player.minAttackSlow++;
                 player.maxAttackSlow++;
+                player.lastAttackSlowTransaction = player.lastTransactionReceived.get();
 
                 // Only sprint-based knockback is limited to one slowdown per tick.
                 if (knockback == 0) {
@@ -169,6 +170,7 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
 
                 // 1.9+ player who might have been slowed, but we can't be sure
                 player.maxAttackSlow++;
+                player.lastAttackSlowTransaction = player.lastTransactionReceived.get();
                 outcome = "possible-slow";
             } else {
                 outcome = "no-sprint-or-knockback-slow";

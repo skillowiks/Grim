@@ -11,6 +11,7 @@ import ac.grim.grimac.utils.data.IndexedVector3d;
 import ac.grim.grimac.utils.data.KnownInput;
 import ac.grim.grimac.utils.data.Triple;
 import ac.grim.grimac.utils.data.VectorData;
+import ac.grim.grimac.utils.data.VelocityData;
 import ac.grim.grimac.utils.math.Vector3dm;
 import ac.grim.grimac.utils.math.VectorUtils;
 import ac.grim.grimac.utils.nmsutil.BlockProperties;
@@ -361,9 +362,24 @@ public class PredictionEngine {
     }
 
     private void addAttackSlowToPossibilities(GrimPlayer player, Set<VectorData> velocities) {
-        for (int x = 1; x <= Math.min(player.maxAttackSlow, 5); x++) {
+        player.minAttackSlow = applyAttackSlow(velocities, player.minAttackSlow, player.maxAttackSlow,
+                player.lastAttackSlowTransaction, player.firstBreadKB, player.likelyKB);
+    }
+
+    static int applyAttackSlow(Set<VectorData> velocities, int minimum, int maximum,
+                               int lastAttackTransaction, VelocityData firstKnockback, VelocityData likelyKnockback) {
+        for (int x = 1; x <= Math.min(maximum, 5); x++) {
             for (VectorData data : new HashSet<>(velocities)) {
-                if (player.minAttackSlow > 0) {
+                VelocityData knockback = data.isFirstBreadKb() ? firstKnockback : likelyKnockback;
+                // Entity motion replaces velocity. If even the latest pending attack
+                // preceded the transaction before this packet, none of those attacks
+                // can slow its replacement velocity. Keep normal movement candidates
+                // and attacks in/after the packet's transaction interval unchanged.
+                if (data.isKnockback() && knockback != null && lastAttackTransaction < knockback.transaction) {
+                    continue;
+                }
+
+                if (minimum > 0) {
                     data.vector.setX(data.vector.getX() * 0.6);
                     data.vector.setZ(data.vector.getZ() * 0.6);
                     data.addVectorType(VectorData.VectorType.AttackSlow);
@@ -372,10 +388,11 @@ public class PredictionEngine {
                 }
             }
 
-            if (player.minAttackSlow > 0) {
-                player.minAttackSlow--;
+            if (minimum > 0) {
+                minimum--;
             }
         }
+        return minimum;
     }
 
     public void addJumpsToPossibilities(GrimPlayer player, Set<VectorData> existingVelocities) {
