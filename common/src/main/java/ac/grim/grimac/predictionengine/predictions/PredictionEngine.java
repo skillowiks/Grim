@@ -400,17 +400,40 @@ public class PredictionEngine {
 
     // Renamed from applyPointZeroZeroThree to avoid confusion with applyZeroPointZeroThree
     public void applyMovementThreshold(GrimPlayer player, Set<VectorData> velocities) {
+        applyMovementThreshold(player.getClientVersion(), player.inVehicle(),
+                player.uncertaintyHandler.stuckOnEdge.hasOccurredSince(2), velocities);
+    }
+
+    public static Set<VectorData> knockbackForMovementSkipping(ClientVersion version, boolean inVehicle,
+                                                              boolean stuckOnEdge, VelocityData firstBread, VelocityData likely) {
+        Set<VectorData> velocities = new HashSet<>();
+        if (firstBread != null) {
+            velocities.add(new VectorData(firstBread.vector.clone(), VectorData.VectorType.Knockback)
+                    .returnNewModified(VectorData.VectorType.FirstBreadKnockback));
+        }
+        if (likely != null) {
+            velocities.add(new VectorData(likely.vector.clone(), VectorData.VectorType.Knockback));
+        }
+        // The client thresholds replacement motion before moving. A small Y can
+        // become zero while a wall blocks X/Z, hiding the tick that applies KB.
+        // Do this before building 0.03 candidates, without changing queued motion.
+        // Explosion vectors are additive, so their deltas must not be thresholded here.
+        applyMovementThreshold(version, inVehicle, stuckOnEdge, velocities);
+        return velocities;
+    }
+
+    private static void applyMovementThreshold(ClientVersion version, boolean inVehicle,
+                                               boolean stuckOnEdge, Set<VectorData> velocities) {
         double minimumMovement = 0.003D;
-        if (player.getClientVersion().isOlderThanOrEquals(ClientVersion.V_1_8)) {
+        if (version.isOlderThanOrEquals(ClientVersion.V_1_8)) {
             minimumMovement = 0.005D;
         }
 
-        boolean stupidVectors = player.getClientVersion().isNewerThanOrEquals(ClientVersion.V_1_21_5) && !player.inVehicle();
-        boolean stuckOnEdge = player.uncertaintyHandler.stuckOnEdge.hasOccurredSince(2);
+        boolean stupidVectors = version.isNewerThanOrEquals(ClientVersion.V_1_21_5) && !inVehicle;
         Set<VectorData> vectors = stupidVectors && stuckOnEdge ? new HashSet<>(velocities) : velocities;
         for (VectorData vector : vectors) {
             if (stupidVectors) {
-                if (Collisions.getHorizontalDistanceSqr(vector.vector) < 9.0E-6) {
+                if (vector.vector.getX() * vector.vector.getX() + vector.vector.getZ() * vector.vector.getZ() < 9.0E-6) {
                     if (stuckOnEdge) {
                         VectorData edgeVector = vector.returnNewModified(vector.vector.clone(), vector.vectorType);
                         if (Math.abs(edgeVector.vector.getY()) < minimumMovement) {

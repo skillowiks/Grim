@@ -26,6 +26,7 @@ import ac.grim.grimac.predictionengine.UncertaintyHandler;
 import ac.grim.grimac.manager.AttackCooldownHandler;
 import ac.grim.grimac.predictionengine.blockeffects.CompensatedGeysers;
 import ac.grim.grimac.predictionengine.blockeffects.PotentSulfurGeyser;
+import ac.grim.grimac.predictionengine.predictions.PredictionEngine;
 import ac.grim.grimac.utils.anticheat.LogUtil;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
 import ac.grim.grimac.utils.anticheat.update.BlockBreak;
@@ -607,9 +608,8 @@ public class GrimPlayer implements GrimUser {
             couldSkipTick = pointThreeEstimator.determineCanSkipTick(BlockProperties.getFrictionInfluencedSpeed((float) (speed * (isSprinting ? 1.3 : 1)), this), getPossibleVelocitiesMinusKnockback());
         }
 
-        Set<VectorData> knockback = new HashSet<>();
-        if (firstBreadKB != null) knockback.add(new VectorData(firstBreadKB.vector, VectorData.VectorType.Knockback));
-        if (likelyKB != null) knockback.add(new VectorData(likelyKB.vector, VectorData.VectorType.Knockback));
+        Set<VectorData> knockback = PredictionEngine.knockbackForMovementSkipping(
+                getClientVersion(), inVehicle(), uncertaintyHandler.stuckOnEdge.hasOccurredSince(2), firstBreadKB, likelyKB);
 
         boolean kbPointThree = pointThreeEstimator.determineCanSkipTick(BlockProperties.getFrictionInfluencedSpeed((float) (speed * (isSprinting ? 1.3 : 1)), this), knockback);
         checkManager.getKnockbackHandler().setPointThree(kbPointThree);
