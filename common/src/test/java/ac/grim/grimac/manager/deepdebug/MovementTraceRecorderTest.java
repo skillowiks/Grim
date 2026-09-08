@@ -7,6 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MovementTraceRecorderTest {
     @Test
+    void keepsBoundedEventsWithTheirMovementAndClearsPendingEvents() {
+        MovementTraceRecorder recorder = new MovementTraceRecorder();
+        for (int i = 0; i < 10; i++) recorder.event("attack=" + i);
+        recorder.movement("before");
+        recorder.flag("Simulation");
+        recorder.movement("trigger");
+        String trace = recorder.snapshot().get(0);
+        assertTrue(trace.contains("attack=0"));
+        assertTrue(trace.contains("attack=7"));
+        assertTrue(trace.contains("omitted=2"));
+        assertEquals("FLAG [Simulation] trigger", trace.split("\n")[1]);
+        recorder.event("late-event");
+        recorder.movement("after");
+        assertEquals(trace, recorder.snapshot().get(0).substring(0, trace.length()));
+    }
+
+    @Test
     void capturesHistoryTriggerAndFollowingMovements() {
         MovementTraceRecorder recorder = new MovementTraceRecorder();
         for (int i = 0; i < 70; i++) recorder.movement("tick=" + i);

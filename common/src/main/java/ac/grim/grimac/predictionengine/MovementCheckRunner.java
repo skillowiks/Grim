@@ -128,6 +128,8 @@ public class MovementCheckRunner extends GrimProcessor {
         }
 
         player.uncertaintyHandler.lastTeleportTicks.reset();
+        player.uncertaintyHandler.hiddenHorizontalCollisionAxes = 0;
+        player.checkManager.getNoSlow().reset();
         if (DeepDebugManager.get().hasActiveSessions()) {
             DeepDebugManager.get().recordInterference(player.uuid, new InterferenceRecord(
                     System.currentTimeMillis(), InterferenceRecord.Kind.TELEPORT,
@@ -267,7 +269,11 @@ public class MovementCheckRunner extends GrimProcessor {
         player.lastInBed = player.isInBed;
 
         // Don't check sleeping players
-        if (player.isInBed) return;
+        if (player.isInBed) {
+            player.uncertaintyHandler.hiddenHorizontalCollisionAxes = 0;
+            player.checkManager.getNoSlow().reset();
+            return;
+        }
 
         if (!player.inVehicle()) {
             player.speed = player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED);
@@ -483,6 +489,9 @@ public class MovementCheckRunner extends GrimProcessor {
         player.startTickClientVel = player.clientVelocity;
 
         boolean wasChecked = false;
+        if (riding != null || player.isGliding) {
+            player.uncertaintyHandler.hiddenHorizontalCollisionAxes = 0;
+        }
 
         // Exempt if the player is dead or is riding a dead entity
         if (player.compensatedEntities.self.isDead || (riding != null && riding.isDead)) {
@@ -569,6 +578,9 @@ public class MovementCheckRunner extends GrimProcessor {
                 wasChecked = false;
             }
         } // If it isn't any of these cases, the player is on a mob they can't control and therefore is exempt
+        if (!wasChecked) {
+            player.uncertaintyHandler.hiddenHorizontalCollisionAxes = 0;
+        }
 
         // No, don't comment about the sqrt call.  It doesn't matter unless you run sqrt thousands of times a second.
         double offset = player.predictedVelocity.vector.distance(player.actualMovement);

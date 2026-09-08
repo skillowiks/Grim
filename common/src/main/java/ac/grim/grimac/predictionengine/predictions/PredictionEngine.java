@@ -1,6 +1,7 @@
 package ac.grim.grimac.predictionengine.predictions;
 
 import ac.grim.grimac.player.GrimPlayer;
+import ac.grim.grimac.predictionengine.HorizontalCollisionUncertainty;
 import ac.grim.grimac.predictionengine.SneakingEstimator;
 import ac.grim.grimac.predictionengine.movementtick.MovementTickerPlayer;
 import ac.grim.grimac.predictionengine.predictions.input.Input;
@@ -87,6 +88,7 @@ public class PredictionEngine {
         Vector3dm beforeCollisionMovement = null;
         Vector3dm realBeforeCollisionMovement = null;
         Vector3dm originalClientVel = player.clientVelocity.clone();
+        int hiddenCollisionAxes = 0;
 
         SimpleCollisionBox originalBB = player.boundingBox;
         // 0.03 doesn't exist with vehicles, thank god
@@ -166,6 +168,7 @@ public class PredictionEngine {
                 bestCollisionVel.preUncertainty = clientVelAfterInput;
                 beforeCollisionMovement = primaryPushMovement;
                 realBeforeCollisionMovement = realPrimaryPushMovement;
+                hiddenCollisionAxes = HorizontalCollisionUncertainty.hiddenAxes(clientVelAfterInput.vector, primaryPushMovement, outputVel);
 
                 // We basically want to avoid falsing ground spoof, try to find a vector that works
                 if (player.wouldCollisionResultFlagGroundSpoof(primaryPushMovement.getY(), bestCollisionVel.vector.getY()))
@@ -188,6 +191,13 @@ public class PredictionEngine {
         player.predictedVelocity = bestCollisionVel; // Set predicted vel to get the vector types later in the move method
         player.stuckSpeedMultiplier = bestCollisionVel.stuckSpeedMultiplier;
         player.boundingBox = originalBB;
+
+        // Do not force a reset: a client may also have reached the wall with a
+        // movement difference below Mth.equal's tolerance and retained momentum.
+        player.uncertaintyHandler.hiddenHorizontalCollisionAxes = !player.inVehicle()
+                && !player.wasTouchingWater && !player.wasTouchingLava && !player.isGliding
+                && player.getClientVersion().isNewerThanOrEquals(ClientVersion.V_1_18_2)
+                && player.getClientVersion().isOlderThan(ClientVersion.V_26_2) ? hiddenCollisionAxes : 0;
 
         // If the closest vector is 0.03, consider it 0.03.
         if (player.predictedVelocity.isZeroPointZeroThree()) {

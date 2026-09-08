@@ -7,6 +7,10 @@ import ac.grim.grimac.checks.impl.prediction.OffsetHandler;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
+import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
+import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemConsumable;
+import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemUseEffects;
+import com.github.retrooper.packetevents.protocol.item.ItemStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.Nullable;
@@ -111,6 +115,12 @@ public final class DeepDebugSession {
         if (stopped) return;
         interference.add(record);
         if (interference.size() > MAX_INTERFERENCE_RECORDS) interference.remove(0);
+        if (record.kind() == InterferenceRecord.Kind.ATTACK || record.kind() == InterferenceRecord.Kind.EXPLOSION
+                || record.kind() == InterferenceRecord.Kind.TELEPORT) {
+            // Keep the events with their movement window even if the session's
+            // global interference ring has already evicted them by report time.
+            movementTraces.event("timeMs=" + record.timeMs() + " " + record);
+        }
     }
 
     void addAttributeAnomaly(String line) {
@@ -167,11 +177,37 @@ public final class DeepDebugSession {
                 + " useItem=" + p.packetStateData.isSlowedByUsingItem()
                 + " useTransaction=" + p.packetStateData.slowedByUsingItemTransaction
                 + " hand=" + p.packetStateData.itemInUseHand
+                + " selectedSlot=" + p.packetStateData.lastSlotSelected
+                + " usingSlot=" + p.packetStateData.getSlowedByUsingItemSlot()
+                + " usingStack=" + describeUseItem(p.inventory.getItemInHand(p.packetStateData.itemInUseHand))
+                + " heldType=" + itemType(p.inventory.getHeldItem())
+                + " offhandType=" + itemType(p.inventory.getOffHand())
+                + " knownInput=" + p.packetStateData.knownInput
+                + " slowMovement=" + p.isSlowMovement + " sneakingMultiplier=" + p.sneakingSpeedMultiplier
+                + " flipItem=" + p.predictedVelocity.isFlipItem() + " flipSneak=" + p.predictedVelocity.isFlipSneaking()
+                + " attackSlow=" + p.minAttackSlow + "/" + p.maxAttackSlow
+                + " attackSlowVector=" + p.predictedVelocity.isAttackSlow()
+                + " predictedInput=" + p.predictedVelocity.input
+                + " nextVelocity=" + p.clientVelocity
+                + " hiddenCollisionAxes=" + p.uncertaintyHandler.hiddenHorizontalCollisionAxes
                 + " firstKB=" + (p.firstBreadKB == null ? "none" : p.firstBreadKB.vector)
                 + " likelyKB=" + (p.likelyKB == null ? "none" : p.likelyKB.vector)
                 + " firstExplosion=" + (p.firstBreadExplosion == null ? "none" : p.firstBreadExplosion.vector)
                 + " likelyExplosion=" + (p.likelyExplosions == null ? "none" : p.likelyExplosions.vector)
                 + " vectorType=" + p.predictedVelocity.vectorType);
+    }
+
+    private static String itemType(@Nullable ItemStack item) {
+        return item == null ? "none" : item.getType().getName().toString();
+    }
+
+    /** Only movement-relevant components; never include item NBT or display text. */
+    private static String describeUseItem(@Nullable ItemStack item) {
+        if (item == null) return "none";
+        ItemUseEffects useEffects = item.getComponentOr(ComponentTypes.USE_EFFECTS, null);
+        ItemConsumable consumable = item.getComponentOr(ComponentTypes.CONSUMABLE, null);
+        return itemType(item) + "{useEffectsSpeed=" + (useEffects == null ? "default" : useEffects.getSpeedMultiplier())
+                + ",consumeSeconds=" + (consumable == null ? "none" : consumable.getConsumeSeconds()) + "}";
     }
 
     public List<String> movementTracesSnapshot() {

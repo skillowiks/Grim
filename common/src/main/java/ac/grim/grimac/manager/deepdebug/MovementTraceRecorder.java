@@ -14,6 +14,13 @@ final class MovementTraceRecorder {
     private List<String> active;
     private int remaining;
     private String pendingFlags = "";
+    private final List<String> pendingEvents = new ArrayList<>();
+    private int omittedEvents;
+
+    synchronized void event(String snapshot) {
+        if (pendingEvents.size() < 8) pendingEvents.add(snapshot);
+        else omittedEvents++;
+    }
 
     synchronized void flag(String name) {
         pendingFlags += pendingFlags.isEmpty() ? name : ", " + name;
@@ -28,6 +35,12 @@ final class MovementTraceRecorder {
             remaining = FOLLOWING + 1; // Triggering movement plus following movements.
         }
         String line = (triggered ? "FLAG [" + pendingFlags + "] " : "") + snapshot;
+        if (!pendingEvents.isEmpty()) {
+            line += " events=[" + String.join(" | ", pendingEvents)
+                    + (omittedEvents == 0 ? "" : " | omitted=" + omittedEvents) + "]";
+        }
+        pendingEvents.clear();
+        omittedEvents = 0;
         pendingFlags = "";
         if (active != null) {
             active.add(line);

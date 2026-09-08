@@ -19,6 +19,7 @@ import ac.grim.grimac.manager.player.handlers.DefaultResyncHandler;
 import ac.grim.grimac.manager.player.handlers.NoOpResyncHandler;
 import ac.grim.grimac.platform.api.player.PlatformPlayer;
 import ac.grim.grimac.predictionengine.EntityFluidInteraction;
+import ac.grim.grimac.predictionengine.HorizontalCollisionUncertainty;
 import ac.grim.grimac.predictionengine.MovementCheckRunner;
 import ac.grim.grimac.predictionengine.PointThreeEstimator;
 import ac.grim.grimac.predictionengine.UncertaintyHandler;
@@ -362,6 +363,10 @@ public class GrimPlayer implements GrimUser {
     public Set<VectorData> getPossibleVelocitiesMinusKnockback() {
         Set<VectorData> possibleMovements = new HashSet<>();
         possibleMovements.add(new VectorData(clientVelocity, VectorData.VectorType.Normal));
+        if (!inVehicle() && !wasTouchingWater && !wasTouchingLava && !isGliding
+                && baseTickWaterPushing.getX() == 0 && baseTickWaterPushing.getZ() == 0) {
+            HorizontalCollisionUncertainty.addCandidates(possibleMovements, clientVelocity, uncertaintyHandler.hiddenHorizontalCollisionAxes);
+        }
 
         // A player cannot swim hop (> 0 y vel) and be on the ground
         // Fixes bug with underwater stepping movement being confused with swim hopping movement

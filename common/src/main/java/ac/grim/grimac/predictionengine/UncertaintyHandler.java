@@ -93,6 +93,8 @@ public class UncertaintyHandler {
     public final LastInstance lastVehicleSwitch;
     public double lastHorizontalOffset = 0;
     public double lastVerticalOffset = 0;
+    // Only the next prediction may reuse these alternate wall-collision outcomes.
+    public int hiddenHorizontalCollisionAxes;
 
     public UncertaintyHandler(GrimPlayer player) {
         this.player = player;

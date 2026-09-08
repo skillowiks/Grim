@@ -5,6 +5,10 @@ import ac.grim.grimac.checks.Check;
 import ac.grim.grimac.platform.api.manager.PluginAttributionProvider;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
+import ac.grim.grimac.utils.data.packetentity.PacketEntity;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.protocol.attribute.Attributes;
+import com.github.retrooper.packetevents.protocol.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
@@ -118,6 +122,38 @@ public final class DeepDebugManager {
         DeepDebugSession session = getSession(uuid);
         if (session == null || session.isStopped()) return;
         session.addInterference(record);
+    }
+
+    /** Captures attack inputs before prediction consumes the attack-slow counters. */
+    public @Nullable AttackDebug beginAttack(GrimPlayer player, PacketReceiveEvent event, int entityId) {
+        if (!hasActiveSessions() || player.uuid == null) return null;
+        DeepDebugSession session = getSession(player.uuid);
+        if (session == null || session.isStopped()) return null;
+
+        PacketEntity target = player.compensatedEntities.getEntity(entityId);
+        ItemStack heldItem = player.inventory.getHeldItem();
+        String knockback = player.compensatedEntities.self.getAttribute(Attributes.ATTACK_KNOCKBACK)
+                .map(attribute -> Double.toString(attribute.get())).orElse("untracked");
+        long timeMs = System.currentTimeMillis();
+        String detail = "timeMs=" + timeMs + " packet=" + event.getPacketType()
+                + " transaction=" + player.lastTransactionReceived.get()
+                + " target=" + entityId + ":" + (target == null ? "unknown" : target.getType().getName())
+                + " heldItem=" + (heldItem == null ? "none" : heldItem.getType().getName())
+                + " lastSprinting=" + player.lastSprinting + " sprinting=" + player.isSprinting
+                + " cooldownMin=" + player.attackCooldown.getMinimumProgress()
+                + " attackKnockback=" + knockback
+                + " slowBefore=" + player.minAttackSlow + "/" + player.maxAttackSlow;
+        return new AttackDebug(session, timeMs, detail);
+    }
+
+    public record AttackDebug(DeepDebugSession session, long timeMs, String detail) {
+        public void finish(GrimPlayer player, boolean cancelled, String outcome) {
+            if (session.isStopped()) return;
+            session.addInterference(new InterferenceRecord(timeMs, InterferenceRecord.Kind.ATTACK,
+                    detail + " slowAfter=" + player.minAttackSlow + "/" + player.maxAttackSlow
+                            + " outcome=" + outcome,
+                    "Grim attack prediction", cancelled));
+        }
     }
 
     /** Called from the attribute-update path when a non-vanilla movement modifier shows up. */

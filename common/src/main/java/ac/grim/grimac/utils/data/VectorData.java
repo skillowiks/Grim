@@ -135,6 +135,7 @@ public class VectorData {
         AttackSlow,
         Flip_Sneaking,
         Flip_Use_Item,
-        EntityPushing
+        EntityPushing,
+        CollisionReset
     }
 }

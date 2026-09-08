@@ -122,7 +122,7 @@ public final class DeepDebugReport {
     // ----------------------------------------------------------- interference
 
     private static void interference(StringBuilder sb, List<InterferenceRecord> interference, List<FlagRecord> flags) {
-        sb.append("\n--- SERVER INTERFERENCE (velocity/teleport/explosion/potion/gamemode, with source) ---\n");
+        sb.append("\n--- MOVEMENT EVENTS (velocity/teleport/explosion/potion/gamemode/attack, with source) ---\n");
         if (interference.isEmpty()) {
             sb.append("(none captured)\n");
             return;

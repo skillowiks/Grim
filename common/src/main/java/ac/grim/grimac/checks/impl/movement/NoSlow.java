@@ -14,9 +14,8 @@ public class NoSlow extends Check implements PostPredictionListener {
     // The player sends that they switched items the next tick if they switch from an item that can be used
     // to another item that can be used.  What the fuck Mojang.  Affects 1.8 (and most likely 1.7) clients.
     public boolean didSlotChangeLastTick = false;
-    public boolean flaggedLastTick = false;
     private double offsetToFlag;
-    private double bestOffset = 1;
+    private final NoSlowBuffer buffer = new NoSlowBuffer();
 
     public NoSlow(GrimPlayer player) {
         super(player);
@@ -24,31 +23,28 @@ public class NoSlow extends Check implements PostPredictionListener {
 
     @Override
     public void onPredictionComplete(final PredictionComplete predictionComplete) {
-        if (!predictionComplete.isChecked()) return;
-
-        // If the player was using an item for certain, and their predicted velocity had a flipped item
-        if (player.packetStateData.isSlowedByUsingItem()) {
-            // 1.8 users are not slowed the first tick they use an item, strangely
-            if (player.getClientVersion().isOlderThanOrEquals(ClientVersion.V_1_8) && didSlotChangeLastTick) {
-                didSlotChangeLastTick = false;
-                flaggedLastTick = false;
-            }
-
-            if (bestOffset > offsetToFlag) {
-                if (flaggedLastTick) {
-                    flagWithSetback("offset=" + bestOffset + ", threshold=" + offsetToFlag);
-                }
-                flaggedLastTick = true;
-            } else {
-                reward();
-                flaggedLastTick = false;
-            }
+        boolean usingItem = player.packetStateData.isSlowedByUsingItem();
+        // 1.8 users are not slowed the first tick after changing usable items.
+        boolean exemptSlotChange = player.getClientVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
+                && didSlotChangeLastTick;
+        if (predictionComplete.isChecked() && usingItem) {
+            didSlotChangeLastTick = false;
         }
-        bestOffset = 1;
+        double bestOffset = buffer.bestOffset();
+        if (buffer.complete(predictionComplete.isChecked(), usingItem, exemptSlotChange, offsetToFlag)) {
+            flagWithSetback("offset=" + bestOffset + ", threshold=" + offsetToFlag);
+        } else if (predictionComplete.isChecked() && usingItem && !exemptSlotChange && bestOffset <= offsetToFlag) {
+            reward();
+        }
     }
 
     public void handlePredictionAnalysis(double offset) {
-        bestOffset = Math.min(bestOffset, offset);
+        buffer.analyze(offset);
+    }
+
+    public void reset() {
+        buffer.reset();
+        didSlotChangeLastTick = false;
     }
 
     @Override
