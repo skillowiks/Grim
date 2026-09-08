@@ -44,6 +44,18 @@ public class PacketStateData {
         didSendMovementBeforeTickEnd = true;
     }
 
+    /** A server cancellation still proves the client sent a movement packet for this tick. */
+    public void recordRejectedMovement(boolean hasPosition) {
+        if (lastPacketWasTeleport || lastPacketWasOnePointSeventeenDuplicate) return;
+        recordMovement(hasPosition, false);
+    }
+
+    public void clearPacketFlags() {
+        lastPacketWasTeleport = false;
+        lastPacketWasOnePointSeventeenDuplicate = false;
+        cancelDuplicatePacket = false;
+    }
+
     /** Returns whether the completed client tick had no regular movement packet. */
     public boolean endClientTick() {
         boolean idle = !didSendMovementBeforeTickEnd;

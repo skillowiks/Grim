@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.protocol.attribute.Attribute;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateAttributes;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.DoubleBinaryOperator;
@@ -97,21 +98,37 @@ public final class ValuedAttribute {
     }
 
     public void recalculate() {
-        with(lastProperty);
+        calculate(lastProperty);
     }
 
     public double with(WrapperPlayServerUpdateAttributes.Property property) {
+        // PacketEvents properties and modifiers can be shared with other packet
+        // consumers. Keep our own mutable state for client-side changes such as
+        // powder snow, without changing the packet or retaining its mutable objects.
+        List<WrapperPlayServerUpdateAttributes.PropertyModifier> modifiers = new ArrayList<>(property.getModifiers().size());
+        for (WrapperPlayServerUpdateAttributes.PropertyModifier modifier : property.getModifiers()) {
+            modifiers.add(new WrapperPlayServerUpdateAttributes.PropertyModifier(
+                    modifier.getName(), modifier.getUUID(), modifier.getAmount(), modifier.getOperation()));
+        }
+        WrapperPlayServerUpdateAttributes.Property snapshot = new WrapperPlayServerUpdateAttributes.Property(
+                property.getAttribute(), property.getValue(), modifiers);
+        double newValue = calculate(snapshot);
+        this.lastProperty = snapshot;
+        return newValue;
+    }
+
+    private double calculate(WrapperPlayServerUpdateAttributes.Property property) {
         double baseValue = property.getValue();
         double additionSum = 0;
         double multiplyBaseSum = 0;
         double multiplyTotalProduct = 1.0;
 
-        List<WrapperPlayServerUpdateAttributes.PropertyModifier> modifiers =
-                property.getModifiers();
-        modifiers.removeIf(modifier -> modifier.getUUID().equals(SPRINTING_MODIFIER_UUID) ||
-                modifier.getName().getKey().equals("sprinting"));
-
-        for (WrapperPlayServerUpdateAttributes.PropertyModifier modifier : modifiers) {
+        for (WrapperPlayServerUpdateAttributes.PropertyModifier modifier : property.getModifiers()) {
+            // MovementCheckRunner applies the separately tracked sprint modifier.
+            if (SPRINTING_MODIFIER_UUID.equals(modifier.getUUID()) ||
+                    modifier.getName() != null && modifier.getName().getKey().equals("sprinting")) {
+                continue;
+            }
             switch (modifier.getOperation()) {
                 case ADDITION:
                     additionSum += modifier.getAmount();
@@ -134,7 +151,6 @@ public final class ValuedAttribute {
             throw new IllegalArgumentException("New value must be between min and max!");
         }
 
-        this.lastProperty = property;
         return this.value = newValue;
     }
 }

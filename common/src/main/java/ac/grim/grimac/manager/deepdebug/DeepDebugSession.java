@@ -163,6 +163,10 @@ public final class DeepDebugSession {
         return Math.max(0, end - startedAtMs);
     }
 
+    void recordPredictionEvent(String detail) {
+        if (!stopped) movementTraces.stateEvent("timeMs=" + System.currentTimeMillis() + " " + detail);
+    }
+
     /** Runs after all prediction checks, so both Simulation and NoSlow mark this movement. */
     public void recordMovement(boolean checked) {
         if (stopped) return;
@@ -174,6 +178,9 @@ public final class DeepDebugSession {
                 + " predicted=" + p.predictedVelocity.vector + " actual=" + p.actualMovement
                 + " startVel=" + p.startTickClientVel + " speed=" + p.speed + " friction=" + p.friction
                 + " ground=" + p.onGround + "/" + p.lastOnGround + " sprint=" + p.isSprinting
+                + " lastSprinting=" + p.lastSprinting
+                + " sprintAttribute=" + p.compensatedEntities.hasSprintingAttributeEnabled
+                + " movementThreshold=" + p.getMovementThreshold()
                 + " useItem=" + p.packetStateData.isSlowedByUsingItem()
                 + " useTransaction=" + p.packetStateData.slowedByUsingItemTransaction
                 + " hand=" + p.packetStateData.itemInUseHand

@@ -5,6 +5,7 @@ import ac.grim.grimac.api.config.ConfigManager;
 import ac.grim.grimac.checks.GrimProcessor;
 import ac.grim.grimac.checks.type.PacketReceiveListener;
 import ac.grim.grimac.checks.type.PacketSendListener;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.LogUtil;
 import ac.grim.grimac.utils.data.SprintingState;
@@ -20,6 +21,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.attribute.Attributes;
 import com.github.retrooper.packetevents.protocol.entity.EntityPositionData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType;
@@ -239,8 +241,21 @@ public class PacketEntityReplication extends GrimProcessor implements PacketRece
             // The attributes for this entity is active, currently
             if (isDirectlyAffectingPlayer(player, entityID)) player.sendTransaction();
 
-            player.latencyUtils.addRealTimeTask(player.lastTransactionSent.get(),
-                    () -> player.compensatedEntities.updateAttributes(entityID, attributes.getProperties()));
+            int attributeTransaction = player.lastTransactionSent.get();
+            if (entityID == player.entityID) {
+                DeepDebugManager.get().recordPredictionEvent(player, () -> "S2C SELF_ATTRIBUTES queued transaction="
+                        + attributeTransaction + " properties=" + describeMovementAttributes(attributes));
+            }
+            player.latencyUtils.addRealTimeTask(attributeTransaction, () -> {
+                player.compensatedEntities.updateAttributes(entityID, attributes.getProperties());
+                if (entityID == player.entityID) {
+                    DeepDebugManager.get().recordPredictionEvent(player, () -> "SELF_ATTRIBUTES applied transaction="
+                            + attributeTransaction + " received=" + player.lastTransactionReceived.get()
+                            + " movementSpeed=" + player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED)
+                            + " sprintAttribute=" + player.compensatedEntities.hasSprintingAttributeEnabled
+                            + " lastSprinting=" + player.lastSprinting + " packetSprint=" + player.isSprinting);
+                }
+            });
         } else if (event.getPacketType() == PacketType.Play.Server.ENTITY_STATUS) {
             WrapperPlayServerEntityStatus status = new WrapperPlayServerEntityStatus(event);
             // This hasn't changed from 1.7.2 to 1.17
@@ -607,6 +622,33 @@ public class PacketEntityReplication extends GrimProcessor implements PacketRece
         // The attributes for this entity is active, currently
         return (player.compensatedEntities.serverPlayerVehicle == null && entityID == player.entityID) ||
                 (player.compensatedEntities.serverPlayerVehicle != null && entityID == player.compensatedEntities.serverPlayerVehicle);
+    }
+
+    private static String describeMovementAttributes(WrapperPlayServerUpdateAttributes packet) {
+        StringBuilder detail = new StringBuilder();
+        int properties = 0;
+        for (WrapperPlayServerUpdateAttributes.Property property : packet.getProperties()) {
+            if (property.getAttribute() != Attributes.MOVEMENT_SPEED
+                    && property.getAttribute() != Attributes.ATTACK_SPEED
+                    && property.getAttribute() != Attributes.ATTACK_KNOCKBACK) continue;
+            if (++properties > 4) {
+                detail.append(" ...");
+                break;
+            }
+            detail.append(property.getAttribute().getName()).append("{base=").append(property.getValue());
+            int modifiers = 0;
+            for (WrapperPlayServerUpdateAttributes.PropertyModifier modifier : property.getModifiers()) {
+                if (++modifiers > 16) {
+                    detail.append(" ...");
+                    break;
+                }
+                String name = String.valueOf(modifier.getName());
+                detail.append(' ').append(name, 0, Math.min(name.length(), 96))
+                        .append(':').append(modifier.getAmount()).append(':').append(modifier.getOperation());
+            }
+            detail.append("} ");
+        }
+        return detail.toString();
     }
 
     public void onEndOfTickEvent(boolean async, boolean flush) {

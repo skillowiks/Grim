@@ -147,6 +147,14 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
                 if (knockbackLevel == 0) {
                     player.maxAttackSlow = player.minAttackSlow = 1;
                 }
+
+                // A successful knockback attack calls setSprinting(false) on the client,
+                // which also removes the sprinting speed modifier. The client can restart
+                // sprinting before sending movement without sending another START_SPRINTING
+                // packet. Preserve isSprinting as the last packet state so the movement
+                // runner detects that restart against this post-attack state.
+                player.lastSprinting = false;
+                player.compensatedEntities.hasSprintingAttributeEnabled = false;
                 outcome = "required-slow";
             } else if (!isLegacyPlayer && player.lastSprinting) {
                 // 1.9+ players who have attack speed cannot slow themselves twice in one tick because their attack cooldown gets reset on swing.

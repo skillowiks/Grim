@@ -2,6 +2,7 @@ package ac.grim.grimac.events.packets;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.checks.impl.elytra.ElytraA;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.data.IntToObjectPair;
 import ac.grim.grimac.utils.data.SprintingState;
@@ -34,6 +35,15 @@ public class PacketEntityAction extends PacketListenerAbstract {
             GrimPlayer player = GrimAPI.INSTANCE.getPlayerDataManager().getPlayer(event.getUser());
 
             if (player == null) return;
+
+            if (action.getAction() == WrapperPlayClientEntityAction.Action.START_SPRINTING
+                    || action.getAction() == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) {
+                DeepDebugManager.get().recordPredictionEvent(player, () -> "C2S " + action.getAction()
+                        + " transaction=" + player.lastTransactionReceived.get()
+                        + " cancelled=" + event.isCancelled() + " sprintBefore=" + player.isSprinting
+                        + " lastSprinting=" + player.lastSprinting
+                        + " sprintAttribute=" + player.compensatedEntities.hasSprintingAttributeEnabled);
+            }
 
             switch (action.getAction()) {
                 case START_SPRINTING -> {

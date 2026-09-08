@@ -124,6 +124,14 @@ public final class DeepDebugManager {
         session.addInterference(record);
     }
 
+    /** Packet state transitions stay in bounded movement windows, not the global event ring. */
+    public void recordPredictionEvent(GrimPlayer player, Supplier<String> detail) {
+        if (!hasActiveSessions() || player.uuid == null) return;
+        DeepDebugSession session = getSession(player.uuid);
+        if (session == null || session.isStopped()) return;
+        session.recordPredictionEvent(detail.get());
+    }
+
     /** Captures attack inputs before prediction consumes the attack-slow counters. */
     public @Nullable AttackDebug beginAttack(GrimPlayer player, PacketReceiveEvent event, int entityId) {
         if (!hasActiveSessions() || player.uuid == null) return null;
@@ -140,6 +148,9 @@ public final class DeepDebugManager {
                 + " target=" + entityId + ":" + (target == null ? "unknown" : target.getType().getName())
                 + " heldItem=" + (heldItem == null ? "none" : heldItem.getType().getName())
                 + " lastSprinting=" + player.lastSprinting + " sprinting=" + player.isSprinting
+                + " sprintAttribute=" + player.compensatedEntities.hasSprintingAttributeEnabled
+                + " useItem=" + player.packetStateData.isSlowedByUsingItem()
+                + " knownInput=" + player.packetStateData.knownInput
                 + " cooldownMin=" + player.attackCooldown.getMinimumProgress()
                 + " attackKnockback=" + knockback
                 + " slowBefore=" + player.minAttackSlow + "/" + player.maxAttackSlow;

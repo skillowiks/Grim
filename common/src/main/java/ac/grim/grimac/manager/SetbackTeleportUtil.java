@@ -161,7 +161,12 @@ public class SetbackTeleportUtil extends GrimProcessor implements PostPrediction
         if (player.platformPlayer != null && player.noSetbackPermission)
             return; // The player has permission to cheat
         requiredSetBack.setPlugin(false); // The player has illegal movement, block from vanilla ac override
-        if (isPendingSetback()) return; // Don't spam setbacks
+        if (isPendingSetback()) {
+            // A timer violation may already have sent a regular setback for this packet. A later
+            // force resync must still protect prediction while waiting for that same teleport.
+            if (isResync) blockOffsets = true;
+            return; // Don't spam setbacks
+        }
 
         // Only let us full resync once every five seconds to prevent unneeded bukkit load
         if (System.currentTimeMillis() - lastWorldResync > 5 * 1000) {

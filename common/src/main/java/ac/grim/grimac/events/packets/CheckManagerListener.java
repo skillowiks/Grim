@@ -2,6 +2,7 @@ package ac.grim.grimac.events.packets;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.checks.impl.badpackets.BadPacketsB;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.update.*;
 import ac.grim.grimac.utils.blockplace.BlockPlaceResult;
@@ -443,13 +444,49 @@ public class CheckManagerListener extends PacketListenerAbstract {
 
         player.checkManager.onPrePredictionReceivePacket(event);
 
-        // The player flagged crasher or timer checks, therefore we must protect predictions against these attacks
-        if (event.isCancelled() && (WrapperPlayClientPlayerFlying.isFlying(event.getPacketType()) || event.getPacketType() == PacketType.Play.Client.VEHICLE_MOVE)) {
-            player.packetStateData.cancelDuplicatePacket = false;
+        boolean skipFlyingPrediction = false;
+        if (WrapperPlayClientPlayerFlying.isFlying(event.getPacketType())) {
+            boolean cancelledBeforePrediction = event.isCancelled();
+            boolean pendingResync = !player.disableGrim && !player.inVehicle()
+                    && shouldDeferPredictionForResync(player.packetStateData,
+                    player.getSetbackTeleportUtil().getRequiredSetBack(), player.getSetbackTeleportUtil().blockOffsets);
+            if (cancelledBeforePrediction || pendingResync) {
+                WrapperPlayClientPlayerFlying flying = new WrapperPlayClientPlayerFlying(event);
+                DeepDebugManager.get().recordPredictionEvent(player, () -> "MOVEMENT_REJECTED phase="
+                        + (cancelledBeforePrediction ? "pre-prediction" : "pending-resync")
+                        + " type=" + event.getPacketType() + " hasPosition=" + flying.hasPositionChanged()
+                        + " transaction=" + player.getLastTransactionReceived()
+                        + " teleport=" + player.packetStateData.lastPacketWasTeleport
+                        + " duplicate=" + player.packetStateData.lastPacketWasOnePointSeventeenDuplicate
+                        + " pendingResync=" + pendingResync);
+                if (!event.isCancelled()) {
+                    event.setCancelled(true);
+                    player.onPacketCancel();
+                }
+
+                // Do not accept the rejected coordinates or simulate from a stale position. The packet
+                // still consumed a real client tick: TICK_END must not invent an idle tick afterwards.
+                if (!player.inVehicle()) player.packetStateData.recordRejectedMovement(flying.hasPositionChanged());
+                if (player.inVehicle() || player.packetStateData.lastPacketWasTeleport
+                        || player.packetStateData.lastPacketWasOnePointSeventeenDuplicate
+                        || !isSafeForRejectedPacketChecks(flying.getLocation(), flying.hasPositionChanged(), flying.hasRotationChanged())) {
+                    // Preserve the crash checks' early return for malformed packets.
+                    player.packetStateData.clearPacketFlags();
+                    return;
+                }
+                if (cancelledBeforePrediction && flying.hasPositionChanged()) {
+                    player.getSetbackTeleportUtil().executeNonSimulatingForceResync();
+                }
+                // Normal packet listeners (including NegativeTimer and attack cooldown) must still
+                // receive this tick, with cancellation intact, even though prediction cannot run.
+                skipFlyingPrediction = true;
+            }
+        } else if (event.isCancelled() && event.getPacketType() == PacketType.Play.Client.VEHICLE_MOVE) {
+            player.packetStateData.clearPacketFlags();
             return;
         }
 
-        if (WrapperPlayClientPlayerFlying.isFlying(event.getPacketType())) {
+        if (WrapperPlayClientPlayerFlying.isFlying(event.getPacketType()) && !skipFlyingPrediction) {
             WrapperPlayClientPlayerFlying flying = new WrapperPlayClientPlayerFlying(event);
             Location pos = flying.getLocation();
             boolean ignoreRotation = player.packetStateData.lastPacketWasOnePointSeventeenDuplicate && player.isIgnoreDuplicatePacketRotation();
@@ -558,6 +595,8 @@ public class CheckManagerListener extends PacketListenerAbstract {
         // Such as the NoFall check setting the player to not be on the ground
         player.checkManager.onPacketReceive(event);
 
+        if (skipFlyingPrediction) event.setCancelled(true);
+
         if (player.packetStateData.cancelDuplicatePacket) {
             event.setCancelled(true);
             player.packetStateData.cancelDuplicatePacket = false;
@@ -575,8 +614,22 @@ public class CheckManagerListener extends PacketListenerAbstract {
         }
 
         // Finally, remove the packet state variables on this packet
-        player.packetStateData.lastPacketWasOnePointSeventeenDuplicate = false;
-        player.packetStateData.lastPacketWasTeleport = false;
+        player.packetStateData.clearPacketFlags();
+    }
+
+    static boolean shouldDeferPredictionForResync(PacketStateData state, SetBackData setback, boolean blockOffsets) {
+        return blockOffsets && setback != null && !setback.isComplete()
+                && !setback.getTeleportData().isRelativePos()
+                && !state.lastPacketWasTeleport && !state.lastPacketWasOnePointSeventeenDuplicate;
+    }
+
+    static boolean isSafeForRejectedPacketChecks(Location location, boolean hasPosition, boolean hasRotation) {
+        // Match the crash guards for supplied coordinates, and also guard look-only packets before
+        // forwarding them to the normal listeners. Never turn malformed input into a recovery path.
+        return (!hasPosition || Double.isFinite(location.getX()) && Double.isFinite(location.getY())
+                && Double.isFinite(location.getZ()) && Math.abs(location.getX()) <= 2.9999999E7D
+                && Math.abs(location.getZ()) <= 2.9999999E7D && Math.abs(location.getY()) <= Integer.MAX_VALUE)
+                && (!(hasPosition || hasRotation) || Float.isFinite(location.getYaw()) && Float.isFinite(location.getPitch()));
     }
 
     @Override

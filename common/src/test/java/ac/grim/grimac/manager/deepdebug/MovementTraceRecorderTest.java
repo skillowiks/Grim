@@ -7,6 +7,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MovementTraceRecorderTest {
     @Test
+    void statePacketStormCannotEvictAttackEvidenceOrLeakIntoNextMovement() {
+        MovementTraceRecorder recorder = new MovementTraceRecorder();
+        for (int i = 0; i < 100; i++) recorder.stateEvent("metadata=" + i);
+        recorder.event("ATTACK required-slow");
+        recorder.flag("Simulation");
+        recorder.movement("trigger");
+        recorder.movement("after");
+        String[] lines = recorder.snapshot().get(0).split("\n");
+        assertTrue(lines[0].contains("ATTACK required-slow"));
+        assertTrue(lines[0].contains("metadata=15"));
+        assertTrue(lines[0].contains("omitted=84"));
+        assertEquals("after", lines[1]);
+    }
+
+    @Test
     void keepsBoundedEventsWithTheirMovementAndClearsPendingEvents() {
         MovementTraceRecorder recorder = new MovementTraceRecorder();
         for (int i = 0; i < 10; i++) recorder.event("attack=" + i);

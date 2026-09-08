@@ -123,6 +123,10 @@ public class MovementCheckRunner extends GrimProcessor {
                     player.clientVelocity.setX(setback.getVelocity().getX());
                     player.clientVelocity.setY(setback.getVelocity().getY());
                     player.clientVelocity.setZ(setback.getVelocity().getZ());
+                    // Authoritative velocity replaces attack slowdown from before the setback,
+                    // including attacks whose movement tick was cancelled before prediction.
+                    player.minAttackSlow = 0;
+                    player.maxAttackSlow = 0;
                 }
             }
         }

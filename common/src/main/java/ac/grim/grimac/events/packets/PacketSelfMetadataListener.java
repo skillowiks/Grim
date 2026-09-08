@@ -1,6 +1,7 @@
 package ac.grim.grimac.events.packets;
 
 import ac.grim.grimac.GrimAPI;
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.data.SprintingState;
 import ac.grim.grimac.utils.nmsutil.WatchableIndexUtil;
@@ -82,7 +83,17 @@ public class PacketSelfMetadataListener extends PacketListenerAbstract {
                 if (!hasSendTransaction) player.sendTransaction();
                 hasSendTransaction = true;
 
-                player.latencyUtils.addRealTimeTask(player.lastTransactionSent.get(), () -> {
+                int metadataTransaction = player.lastTransactionSent.get();
+                DeepDebugManager.get().recordPredictionEvent(player, () -> "S2C SELF_FLAGS queued transaction="
+                        + metadataTransaction + " flags=" + Byte.toUnsignedInt(field)
+                        + " sprint=" + isSprinting + " lastSprinting=" + player.lastSprinting
+                        + " sprintAttribute=" + player.compensatedEntities.hasSprintingAttributeEnabled);
+                player.latencyUtils.addRealTimeTask(metadataTransaction, () -> {
+                    DeepDebugManager.get().recordPredictionEvent(player, () -> "SELF_FLAGS applied transaction="
+                            + metadataTransaction + " received=" + player.lastTransactionReceived.get()
+                            + " sprint=" + isSprinting + " lastSprintingBefore=" + player.lastSprinting
+                            + " packetSprint=" + player.isSprinting
+                            + " sprintAttribute=" + player.compensatedEntities.hasSprintingAttributeEnabled);
                     player.isSwimming = isSwimming;
                     player.lastSprinting = isSprinting;
                     if (!isSprinting) {

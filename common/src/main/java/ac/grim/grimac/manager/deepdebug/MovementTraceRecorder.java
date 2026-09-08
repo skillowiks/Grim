@@ -16,6 +16,13 @@ final class MovementTraceRecorder {
     private String pendingFlags = "";
     private final List<String> pendingEvents = new ArrayList<>();
     private int omittedEvents;
+    private final List<String> pendingStateEvents = new ArrayList<>();
+    private int omittedStateEvents;
+
+    synchronized void stateEvent(String snapshot) {
+        if (pendingStateEvents.size() < 16) pendingStateEvents.add(snapshot);
+        else omittedStateEvents++;
+    }
 
     synchronized void event(String snapshot) {
         if (pendingEvents.size() < 8) pendingEvents.add(snapshot);
@@ -41,6 +48,12 @@ final class MovementTraceRecorder {
         }
         pendingEvents.clear();
         omittedEvents = 0;
+        if (!pendingStateEvents.isEmpty()) {
+            line += " packetStates=[" + String.join(" | ", pendingStateEvents)
+                    + (omittedStateEvents == 0 ? "" : " | omitted=" + omittedStateEvents) + "]";
+        }
+        pendingStateEvents.clear();
+        omittedStateEvents = 0;
         pendingFlags = "";
         if (active != null) {
             active.add(line);
