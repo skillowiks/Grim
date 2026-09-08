@@ -565,17 +565,13 @@ public class CheckManagerListener extends PacketListenerAbstract {
 
         if (event.getPacketType() == PacketType.Play.Client.CLIENT_TICK_END && player.supportsEndTick()) {
             player.serverOpenedInventoryThisTick = false;
-            if (!player.packetStateData.didSendMovementBeforeTickEnd) {
+            if (player.packetStateData.endClientTick()) {
                 // The player didn't send a movement packet, so we can predict this like we had idle tick on 1.8
-                player.packetStateData.didLastLastMovementIncludePosition = player.packetStateData.didLastMovementIncludePosition;
-                player.packetStateData.didLastMovementIncludePosition = false;
-
                 // Track dash cooldown
                 if (!player.inVehicle()) {
                     player.dashableEntities.tick();
                 }
             }
-            player.packetStateData.didSendMovementBeforeTickEnd = false;
         }
 
         // Finally, remove the packet state variables on this packet
@@ -743,12 +739,7 @@ public class CheckManagerListener extends PacketListenerAbstract {
             }
         }
 
-        player.packetStateData.didLastLastMovementIncludePosition = player.packetStateData.didLastMovementIncludePosition;
-        player.packetStateData.didLastMovementIncludePosition = hasPosition;
-
-        if (!player.packetStateData.lastPacketWasTeleport) {
-            player.packetStateData.didSendMovementBeforeTickEnd = true;
-        }
+        player.packetStateData.recordMovement(hasPosition, player.packetStateData.lastPacketWasTeleport);
 
         player.packetStateData.horseInteractCausedForcedRotation = false;
     }

@@ -190,6 +190,9 @@ public final class DeepDebugSession {
                 + " predictedInput=" + p.predictedVelocity.input
                 + " nextVelocity=" + p.clientVelocity
                 + " hiddenCollisionAxes=" + p.uncertaintyHandler.hiddenHorizontalCollisionAxes
+                + " previousPositionPackets=" + p.packetStateData.didLastMovementIncludePosition
+                + "/" + p.packetStateData.didLastLastMovementIncludePosition
+                + " skippedTick=" + p.skippedTickInActualMovement
                 + " firstKB=" + (p.firstBreadKB == null ? "none" : p.firstBreadKB.vector)
                 + " likelyKB=" + (p.likelyKB == null ? "none" : p.likelyKB.vector)
                 + " firstExplosion=" + (p.firstBreadExplosion == null ? "none" : p.firstBreadExplosion.vector)

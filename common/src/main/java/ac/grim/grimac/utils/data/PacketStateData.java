@@ -17,7 +17,7 @@ public class PacketStateData {
     public boolean tryingToRiptide = false;
     public int slowedByUsingItemTransaction = Integer.MIN_VALUE;
     public boolean receivedSteerVehicle = false;
-    // This works on 1.8 only
+    // Teleport acknowledgements must not advance the real movement history.
     public boolean didLastLastMovementIncludePosition = false;
     public boolean didLastMovementIncludePosition = false;
     // This works on 1.21.2+ only
@@ -34,6 +34,26 @@ public class PacketStateData {
 
     // If true, the player's rotation was forced to the horse's rotation only on 1.13-
     public boolean horseInteractCausedForcedRotation = false;
+
+    public void recordMovement(boolean hasPosition, boolean isTeleport) {
+        // The client sends a PosRot acknowledgement directly from its teleport packet handler,
+        // without ticking movement. Keep any confirmed idle tick available to prediction.
+        if (isTeleport) return;
+        didLastLastMovementIncludePosition = didLastMovementIncludePosition;
+        didLastMovementIncludePosition = hasPosition;
+        didSendMovementBeforeTickEnd = true;
+    }
+
+    /** Returns whether the completed client tick had no regular movement packet. */
+    public boolean endClientTick() {
+        boolean idle = !didSendMovementBeforeTickEnd;
+        if (idle) {
+            didLastLastMovementIncludePosition = didLastMovementIncludePosition;
+            didLastMovementIncludePosition = false;
+        }
+        didSendMovementBeforeTickEnd = false;
+        return idle;
+    }
 
     public void setSlowedByUsingItem(boolean slowedByUsingItem) {
         slowedByUsingItemSlot = slowedByUsingItem ? lastSlotSelected : Integer.MIN_VALUE;
