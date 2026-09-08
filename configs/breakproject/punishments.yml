@@ -4,7 +4,8 @@
 # Это количество флагов, НЕ секундный cooldown. 1:1 — каждое срабатывание.
 # [log] сохраняет нарушение в БД и /grim history.
 # Без [log]: Simulation, GroundSpoof, NoFall и все разновидности Timer.
-# Остальные включённые проверки: 1:1 [log], уведомления — реже.
+# Остальные включённые проверки: 1:1 [log].
+# Reach/Hitboxes: 1:1 [alert]; прочие уведомления — реже.
 # Удалять шумные проверки из checks не нужно: это отключит их.
 # Бан-команды Reach/Hitboxes сохранены из пользовательского конфига.
 # Заменить СУЩЕСТВУЮЩИЙ punishments.yml целиком, не добавлять к старым группам.
@@ -123,7 +124,7 @@ Punishments:
       - "Reach"
     commands:
       - "1:1 [log]"
-      - "1:25 [alert]"
+      - "1:1 [alert]"
       - "5:50 [webhook]"
       - "5:50 [proxy]"
       - "10:5 bban-ip %player% 14d -p --sender-name=&fꐞ&f Использование &7стороннего&f ПО."
@@ -134,7 +135,7 @@ Punishments:
       - "Hitboxes"
     commands:
       - "1:1 [log]"
-      - "1:25 [alert]"
+      - "1:1 [alert]"
       - "5:50 [webhook]"
       - "5:50 [proxy]"
       - "10:5 bban-ip %player% 14d -p --sender-name=&fꐞ&f Использование &7стороннего&f ПО."
