@@ -26,7 +26,10 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class BlockProperties {
     public static float getFrictionInfluencedSpeed(float blockFriction, GrimPlayer player) {
-        float movementSpeed = (float) player.speed;
+        return getFrictionInfluencedSpeed(blockFriction, player, (float) player.speed);
+    }
+
+    public static float getFrictionInfluencedSpeed(float blockFriction, GrimPlayer player, float movementSpeed) {
 
         if (player.lastOnGround) {
             blockFriction = getModifiedFriction(blockFriction, player);

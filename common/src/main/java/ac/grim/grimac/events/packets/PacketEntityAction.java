@@ -38,6 +38,7 @@ public class PacketEntityAction extends PacketListenerAbstract {
 
             if (action.getAction() == WrapperPlayClientEntityAction.Action.START_SPRINTING
                     || action.getAction() == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) {
+                player.movementSpeedChanges.invalidateSprinting();
                 DeepDebugManager.get().recordPredictionEvent(player, () -> "C2S " + action.getAction()
                         + " transaction=" + player.lastTransactionReceived.get()
                         + " cancelled=" + event.isCancelled() + " sprintBefore=" + player.isSprinting

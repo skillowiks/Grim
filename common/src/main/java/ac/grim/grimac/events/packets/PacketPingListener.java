@@ -16,6 +16,8 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPi
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.function.IntConsumer;
+
 public class PacketPingListener extends PacketListenerAbstract {
 
     private static final GrimTransactionSendEvent.Channel SEND_CHANNEL = GrimAPI.INSTANCE.getEventBus().get(GrimTransactionSendEvent.class);
@@ -90,7 +92,11 @@ public class PacketPingListener extends PacketListenerAbstract {
         if (player.getLastTransactionSent() == 0) {
             player.getPlayerClockAtLeast(); // update clock
         }
-        player.lastTransactionSent.getAndIncrement();
+        int transaction = player.lastTransactionSent.incrementAndGet();
+        IntConsumer afterSend = player.takeTransactionSendCallback(shortId);
+        if (afterSend != null) {
+            event.getTasksAfterSend().add(() -> afterSend.accept(transaction));
+        }
         SEND_CHANNEL.fire(player, shortId, event.getTimestamp());
     }
 }

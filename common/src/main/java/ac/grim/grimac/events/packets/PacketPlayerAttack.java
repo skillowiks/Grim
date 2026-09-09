@@ -143,6 +143,7 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
             // without sprinting or a fully charged attack.
 
             if (player.lastSprinting && !hasNegativeKB && sufficientCooldownProgress || knockback > 0) {
+                player.movementSpeedChanges.invalidateSprinting();
                 player.minAttackSlow++;
                 player.maxAttackSlow++;
                 player.lastAttackSlowTransaction = player.lastTransactionReceived.get();
@@ -169,6 +170,7 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
                 }
 
                 // 1.9+ player who might have been slowed, but we can't be sure
+                player.movementSpeedChanges.invalidateSprinting();
                 player.maxAttackSlow++;
                 player.lastAttackSlowTransaction = player.lastTransactionReceived.get();
                 outcome = "possible-slow";

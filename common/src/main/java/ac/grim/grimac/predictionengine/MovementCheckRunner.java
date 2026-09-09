@@ -23,6 +23,7 @@ import ac.grim.grimac.utils.anticheat.update.PredictionComplete;
 import ac.grim.grimac.utils.collisions.datatypes.SimpleCollisionBox;
 import ac.grim.grimac.utils.data.IndexedVector3d;
 import ac.grim.grimac.utils.data.SetBackData;
+import ac.grim.grimac.utils.data.TeleportData;
 import ac.grim.grimac.utils.data.VectorData;
 import ac.grim.grimac.utils.data.packetentity.PacketEntity;
 import ac.grim.grimac.utils.data.packetentity.PacketEntityCamel;
@@ -54,15 +55,51 @@ import com.github.retrooper.packetevents.protocol.world.states.defaulttags.Block
 import com.github.retrooper.packetevents.protocol.world.states.type.StateTypes;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MovementCheckRunner extends GrimProcessor {
     // Averaged over 500 predictions (Defaults set slightly above my 3600x results)
     public static double predictionNanos = 0.3 * 1e6;
     // Averaged over 20000 predictions
     public static double longPredictionNanos = 0.3 * 1e6;
     private boolean allowSprintJumpingWithElytra = true;
+    private final RejectedMovementGroundState rejectedMovementGround = new RejectedMovementGroundState();
 
     public MovementCheckRunner(GrimPlayer player) {
         super(player);
+    }
+
+    public void clearRejectedGround() {
+        rejectedMovementGround.clear();
+    }
+
+    public void recordRejectedGround(double x, double y, double z, boolean claimedGround) {
+        SetBackData setback = player.getSetbackTeleportUtil().getRequiredSetBack();
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
+                || !canRestoreRejectedGround(setback)) {
+            clearRejectedGround();
+            return;
+        }
+        TeleportData teleport = setback.getTeleportData();
+        rejectedMovementGround.record(teleport.getTeleportId(), teleport.getTransaction(), claimedGround,
+                claimedGround && hasGroundSupport(x, y, z));
+    }
+
+    private boolean canRestoreRejectedGround(SetBackData setback) {
+        return player.supportsEndTick() && !player.inVehicle() && !player.isFlying
+                && !player.isGliding && !player.isInBed && setback != null
+                && !setback.isPlugin() && !setback.isVehicle()
+                && !setback.getTeleportData().isRelativePos()
+                && !setback.getTeleportData().isRelativeVelocity()
+                && (setback.getVelocity() != null || setback.getTeleportData().getVelocity() != null);
+    }
+
+    private boolean hasGroundSupport(double x, double y, double z) {
+        SimpleCollisionBox box = GetBoundingBox.getCollisionBoxForPlayer(player, x, y, z);
+        List<SimpleCollisionBox> collisions = new ArrayList<>();
+        Collisions.getCollisionBoxes(player, box.copy().expand(0, RejectedMovementGroundState.SUPPORT_PROBE, 0), collisions, false);
+        return RejectedMovementGroundState.hasSupport(box, collisions);
     }
 
     public void processAndCheckMovementPacket(PositionUpdate data) {
@@ -132,6 +169,24 @@ public class MovementCheckRunner extends GrimProcessor {
             }
         }
 
+        // The client can land on a movement tick discarded while awaiting this correction.
+        // Absolute teleports preserve that ground state; their ACK's ground=false is not a tick.
+        TeleportData teleport = update.getTeleportData();
+        boolean restoreGround = teleport != null && canRestoreRejectedGround(update.getSetback())
+                && rejectedMovementGround.matches(teleport.getTeleportId(), teleport.getTransaction())
+                && rejectedMovementGround.consume(teleport.getTeleportId(), teleport.getTransaction(), true,
+                player.clientVelocity.getY(), hasGroundSupport(player.x, player.y, player.z));
+        clearRejectedGround();
+        if (restoreGround) {
+            player.lastOnGround = true;
+            player.onGround = true;
+            player.clientClaimsLastOnGround = true;
+            player.packetStateData.packetPlayerOnGround = true;
+            DeepDebugManager.get().recordPredictionEvent(player, () -> "TELEPORT_GROUND_RESTORED id="
+                    + teleport.getTeleportId() + " transaction=" + teleport.getTransaction()
+                    + " reason=supported-rejected-movement");
+        }
+
         player.uncertaintyHandler.lastTeleportTicks.reset();
         player.uncertaintyHandler.hiddenHorizontalCollisionAxes = 0;
         player.checkManager.getNoSlow().reset();
@@ -164,6 +219,7 @@ public class MovementCheckRunner extends GrimProcessor {
             return;
         }
 
+        clearRejectedGround();
         player.intersectedWithNetherPortal = false;
         player.onGround = update.isOnGround();
 

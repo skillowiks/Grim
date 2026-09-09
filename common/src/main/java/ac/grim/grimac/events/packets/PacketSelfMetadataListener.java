@@ -212,12 +212,18 @@ public class PacketSelfMetadataListener extends PacketListenerAbstract {
                     // This was added for stuff like shields, but IMO it really should be all client sided
                     boolean isActive = (data & 1) > 0;
                     boolean isOffhand = (data & 2) > 0;
+                    int markedTransaction = player.lastTransactionSent.get();
+                    DeepDebugManager.get().recordPredictionEvent(player, () -> "S2C SELF_USE_FLAGS queued transaction="
+                            + markedTransaction + " active=" + isActive + " offhand=" + isOffhand
+                            + " usingBefore=" + player.packetStateData.isSlowedByUsingItem());
 
                     // Player might have gotten this packet
-                    player.latencyUtils.addRealTimeTask(player.lastTransactionSent.get(),
-                            () -> player.packetStateData.setSlowedByUsingItem(false));
-
-                    int markedTransaction = player.lastTransactionSent.get();
+                    player.latencyUtils.addRealTimeTask(markedTransaction, () -> {
+                        player.packetStateData.setSlowedByUsingItem(false);
+                        DeepDebugManager.get().recordPredictionEvent(player, () -> "SELF_USE_FLAGS uncertain transaction="
+                                + markedTransaction + " received=" + player.lastTransactionReceived.get()
+                                + " usingItem=false useTransaction=" + player.packetStateData.slowedByUsingItemTransaction);
+                    });
 
                     // Player has gotten this packet
                     player.latencyUtils.addRealTimeTask(player.lastTransactionSent.get() + 1, () -> {
@@ -231,6 +237,11 @@ public class PacketSelfMetadataListener extends PacketListenerAbstract {
                                 player.packetStateData.itemInUseHand = isOffhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
                             }
                         }
+                        DeepDebugManager.get().recordPredictionEvent(player, () -> "SELF_USE_FLAGS resolved transaction="
+                                + markedTransaction + " received=" + player.lastTransactionReceived.get()
+                                + " packetActive=" + isActive + " usingItem=" + player.packetStateData.isSlowedByUsingItem()
+                                + " useTransaction=" + player.packetStateData.slowedByUsingItemTransaction
+                                + " hand=" + player.packetStateData.itemInUseHand);
                     });
 
                     // Yes, we do have to use a transaction for eating as otherwise it can desync much easier

@@ -103,6 +103,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 // Everything in this class should be sync'd to the anticheat thread.
 // Put variables sync'd to the Netty thread in PacketStateData
@@ -121,6 +122,8 @@ public class GrimPlayer implements GrimUser {
     private final @NotNull AtomicInteger transactionIDCounter = new AtomicInteger(0);
     public final @NotNull AtomicInteger lastTransactionSent = new AtomicInteger(0);
     public final @NotNull AtomicInteger lastTransactionReceived = new AtomicInteger(0);
+    private final TransactionSendCallbacks transactionSendCallbacks = new TransactionSendCallbacks();
+    public final MovementSpeedChangeTracker movementSpeedChanges = new MovementSpeedChangeTracker();
     // End transaction handling stuff
     // Manager like classes
     public final @NotNull CheckManager checkManager;
@@ -493,6 +496,14 @@ public class GrimPlayer implements GrimUser {
     }
 
     public void sendTransaction(boolean async) {
+        sendTransaction(async, null);
+    }
+
+    public void sendTransaction(IntConsumer afterSend) {
+        sendTransaction(false, afterSend);
+    }
+
+    private void sendTransaction(boolean async, @Nullable IntConsumer afterSend) {
         // don't send transactions outside PLAY phase
         // Sending in non-play corrupts the pipeline, don't waste bandwidth when anticheat disabled
         if (user.getEncoderState() != ConnectionState.PLAY) return;
@@ -515,16 +526,25 @@ public class GrimPlayer implements GrimUser {
 
             if (async) {
                 runSafely(() -> {
+                    transactionSendCallbacks.put(transactionID, afterSend);
                     addTransactionSend(transactionID);
                     user.writePacket(packet);
                 });
             } else {
+                transactionSendCallbacks.put(transactionID, afterSend);
                 addTransactionSend(transactionID);
                 user.writePacket(packet);
             }
         } catch (Exception ignored) { // Fix protocollib + viaversion support by ignoring any errors :) // TODO: Fix this
+            if (afterSend != null) transactionSendCallbacks.remove(transactionID, afterSend);
             // recompile
         }
+    }
+
+    public @Nullable IntConsumer takeTransactionSendCallback(short id) {
+        // Removal at the send event also prevents retained callbacks for cancelled
+        // packets. ID reuse replaces any callback whose write never reached Netty.
+        return transactionSendCallbacks.take(id);
     }
 
     public void addTransactionSend(short id) {

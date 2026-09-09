@@ -15,6 +15,7 @@ import ac.grim.grimac.utils.data.packetentity.PacketEntity;
 import ac.grim.grimac.utils.data.packetentity.PacketEntityHook;
 import ac.grim.grimac.utils.data.packetentity.PacketEntityTrackXRot;
 import ac.grim.grimac.utils.enums.Pose;
+import ac.grim.grimac.utils.latency.MovementSpeedChangeTracker;
 import ac.grim.grimac.utils.nmsutil.EntityMetadataPoseUtil;
 import ac.grim.grimac.utils.viaversion.ViaVersionUtil;
 import com.github.retrooper.packetevents.PacketEvents;
@@ -246,11 +247,37 @@ public class PacketEntityReplication extends GrimProcessor implements PacketRece
                 DeepDebugManager.get().recordPredictionEvent(player, () -> "S2C SELF_ATTRIBUTES queued transaction="
                         + attributeTransaction + " properties=" + describeMovementAttributes(attributes));
             }
+            boolean changesSelfSpeed = entityID == player.entityID && attributes.getProperties().stream()
+                    .anyMatch(property -> property.getAttribute() == Attributes.MOVEMENT_SPEED);
+            // PacketEvents exposes mutable properties. Capture private copies now,
+            // rather than retaining packet objects until their transaction arrives.
+            List<WrapperPlayServerUpdateAttributes.Property> properties = changesSelfSpeed
+                    ? copyAttributes(attributes.getProperties()) : attributes.getProperties();
+            MovementSpeedChangeTracker.Pending speedChange = changesSelfSpeed
+                    ? player.movementSpeedChanges.pending(attributeTransaction) : null;
+            if (speedChange != null) {
+                event.getTasksAfterSend().add(() -> player.sendTransaction(afterTransaction -> {
+                    player.movementSpeedChanges.sentAfter(speedChange, afterTransaction);
+                    DeepDebugManager.get().recordPredictionEvent(player, () -> "SELF_ATTRIBUTES trailing before="
+                            + attributeTransaction + " after=" + afterTransaction);
+                    player.latencyUtils.addRealTimeTask(afterTransaction,
+                            () -> player.movementSpeedChanges.acknowledgedAfter(speedChange));
+                }));
+            }
             player.latencyUtils.addRealTimeTask(attributeTransaction, () -> {
-                player.compensatedEntities.updateAttributes(entityID, attributes.getProperties());
+                double oldSpeed = speedChange == null ? 0
+                        : player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED);
+                boolean oldSprintAttribute = player.compensatedEntities.hasSprintingAttributeEnabled;
+                player.compensatedEntities.updateAttributes(entityID, properties);
+                if (speedChange != null) {
+                    player.movementSpeedChanges.activate(speedChange, oldSpeed, oldSprintAttribute,
+                            player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED),
+                            player.compensatedEntities.hasSprintingAttributeEnabled, player.isSprinting, player.lastSprinting);
+                }
                 if (entityID == player.entityID) {
                     DeepDebugManager.get().recordPredictionEvent(player, () -> "SELF_ATTRIBUTES applied transaction="
                             + attributeTransaction + " received=" + player.lastTransactionReceived.get()
+                            + (speedChange == null ? "" : " oldBase=" + oldSpeed)
                             + " movementSpeed=" + player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED)
                             + " sprintAttribute=" + player.compensatedEntities.hasSprintingAttributeEnabled
                             + " lastSprinting=" + player.lastSprinting + " packetSprint=" + player.isSprinting);
@@ -430,6 +457,20 @@ public class PacketEntityReplication extends GrimProcessor implements PacketRece
                 }, maxFireworkBoostPing);
             }
         }
+    }
+
+    static List<WrapperPlayServerUpdateAttributes.Property> copyAttributes(
+            List<WrapperPlayServerUpdateAttributes.Property> properties) {
+        List<WrapperPlayServerUpdateAttributes.Property> copies = new ArrayList<>(properties.size());
+        for (WrapperPlayServerUpdateAttributes.Property property : properties) {
+            List<WrapperPlayServerUpdateAttributes.PropertyModifier> modifiers = new ArrayList<>(property.getModifiers().size());
+            for (WrapperPlayServerUpdateAttributes.PropertyModifier modifier : property.getModifiers()) {
+                modifiers.add(new WrapperPlayServerUpdateAttributes.PropertyModifier(
+                        modifier.getName(), modifier.getUUID(), modifier.getAmount(), modifier.getOperation()));
+            }
+            copies.add(new WrapperPlayServerUpdateAttributes.Property(property.getAttribute(), property.getValue(), List.copyOf(modifiers)));
+        }
+        return List.copyOf(copies);
     }
 
     private void handleMountVehicle(PacketSendEvent event, int vehicleID, int[] passengers) {

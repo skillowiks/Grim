@@ -452,13 +452,17 @@ public class CheckManagerListener extends PacketListenerAbstract {
                     player.getSetbackTeleportUtil().getRequiredSetBack(), player.getSetbackTeleportUtil().blockOffsets);
             if (cancelledBeforePrediction || pendingResync) {
                 WrapperPlayClientPlayerFlying flying = new WrapperPlayClientPlayerFlying(event);
+                boolean safeRejectedMovement = isSafeForRejectedPacketChecks(flying.getLocation(),
+                        flying.hasPositionChanged(), flying.hasRotationChanged());
                 DeepDebugManager.get().recordPredictionEvent(player, () -> "MOVEMENT_REJECTED phase="
                         + (cancelledBeforePrediction ? "pre-prediction" : "pending-resync")
                         + " type=" + event.getPacketType() + " hasPosition=" + flying.hasPositionChanged()
                         + " transaction=" + player.getLastTransactionReceived()
                         + " teleport=" + player.packetStateData.lastPacketWasTeleport
                         + " duplicate=" + player.packetStateData.lastPacketWasOnePointSeventeenDuplicate
-                        + " pendingResync=" + pendingResync);
+                        + " pendingResync=" + pendingResync + " onGround=" + flying.isOnGround()
+                        + " position=" + (safeRejectedMovement && flying.hasPositionChanged()
+                        ? flying.getLocation().getPosition() : "unavailable"));
                 if (!event.isCancelled()) {
                     event.setCancelled(true);
                     player.onPacketCancel();
@@ -469,10 +473,18 @@ public class CheckManagerListener extends PacketListenerAbstract {
                 if (!player.inVehicle()) player.packetStateData.recordRejectedMovement(flying.hasPositionChanged());
                 if (player.inVehicle() || player.packetStateData.lastPacketWasTeleport
                         || player.packetStateData.lastPacketWasOnePointSeventeenDuplicate
-                        || !isSafeForRejectedPacketChecks(flying.getLocation(), flying.hasPositionChanged(), flying.hasRotationChanged())) {
+                        || !safeRejectedMovement) {
                     // Preserve the crash checks' early return for malformed packets.
+                    player.movementCheckRunner.clearRejectedGround();
                     player.packetStateData.clearPacketFlags();
                     return;
+                }
+                if (pendingResync && !cancelledBeforePrediction && flying.hasPositionChanged()) {
+                    Location rejectedPosition = flying.getLocation();
+                    player.movementCheckRunner.recordRejectedGround(rejectedPosition.getX(), rejectedPosition.getY(),
+                            rejectedPosition.getZ(), flying.isOnGround());
+                } else {
+                    player.movementCheckRunner.clearRejectedGround();
                 }
                 if (cancelledBeforePrediction && flying.hasPositionChanged()) {
                     player.getSetbackTeleportUtil().executeNonSimulatingForceResync();
@@ -488,6 +500,10 @@ public class CheckManagerListener extends PacketListenerAbstract {
 
         if (WrapperPlayClientPlayerFlying.isFlying(event.getPacketType()) && !skipFlyingPrediction) {
             WrapperPlayClientPlayerFlying flying = new WrapperPlayClientPlayerFlying(event);
+            if (!player.packetStateData.lastPacketWasTeleport
+                    && !player.packetStateData.lastPacketWasOnePointSeventeenDuplicate) {
+                player.movementCheckRunner.clearRejectedGround();
+            }
             Location pos = flying.getLocation();
             boolean ignoreRotation = player.packetStateData.lastPacketWasOnePointSeventeenDuplicate && player.isIgnoreDuplicatePacketRotation();
             handleFlying(player, pos.getX(), pos.getY(), pos.getZ(), ignoreRotation ? 0 : pos.getYaw(), ignoreRotation ? 0 : pos.getPitch(), flying.hasPositionChanged(), flying.hasRotationChanged() && !ignoreRotation, flying.isOnGround(), teleportData);

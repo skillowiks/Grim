@@ -14,12 +14,38 @@ import com.github.retrooper.packetevents.protocol.item.type.ItemTypes;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.potion.PotionTypes;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateTypes;
+import com.github.retrooper.packetevents.util.Vector3d;
 
 import java.util.HashSet;
+import java.util.List;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 
 public class PredictionEngineNormal extends PredictionEngine {
+
+    @Override
+    public List<VectorData> applyInputsToVelocityPossibilities(GrimPlayer player, Set<VectorData> possibleVectors, float speed) {
+        List<VectorData> results = super.applyInputsToVelocityPossibilities(player, possibleVectors, speed);
+        if (player.inVehicle() || !player.lastOnGround || player.isFlying || player.wasFlying
+                || player.isGliding || player.wasGliding) return results;
+
+        OptionalDouble previousSpeed = player.movementSpeedChanges.previousSpeed(
+                player.lastTransactionReceived.get(), player.compensatedEntities.self.getAttributeValue(Attributes.MOVEMENT_SPEED),
+                player.compensatedEntities.hasSprintingAttributeEnabled, player.isSprinting, player.lastSprinting);
+        if (previousSpeed.isEmpty()) return results;
+
+        float blockFriction = BlockProperties.getFriction(player, player.mainSupportingBlockData,
+                new Vector3d(player.lastX, player.lastY, player.lastZ));
+        float previousAcceleration = BlockProperties.getFrictionInfluencedSpeed(blockFriction, player,
+                (float) previousSpeed.getAsDouble());
+        if (previousAcceleration != speed) {
+            // Use the existing input/item loops so NoSlow still evaluates slowed
+            // candidates and the chosen vector carries its actual inertia forward.
+            results.addAll(super.applyInputsToVelocityPossibilities(player, possibleVectors, previousAcceleration));
+        }
+        return results;
+    }
 
     public static void staticVectorEndOfTick(GrimPlayer player, Vector3dm vector) {
         double adjustedY = vector.getY();
