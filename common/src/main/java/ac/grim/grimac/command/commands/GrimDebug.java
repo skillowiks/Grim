@@ -10,6 +10,7 @@ import ac.grim.grimac.platform.api.command.PlayerSelector;
 import ac.grim.grimac.platform.api.manager.cloud.CloudPlatformCommandArguments;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
+import ac.grim.grimac.utils.anticheat.DebugMessageUtil;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.protocol.player.User;
@@ -128,7 +129,7 @@ public class GrimDebug implements BuildableCommand {
                 playerName(targetGrimPlayer), flags.size(), byCheck.size());
 
         String report = DeepDebugReport.build(session);
-        GrimLog.sendLogAsync(sender, report, url -> { }, "text/yaml");
+        GrimLog.sendLogAsync(sender, report, url -> { }, "text/yaml", playerName(targetGrimPlayer));
     }
 
     private void handleDebugStop(@NotNull CommandContext<Sender> context) {
@@ -184,10 +185,10 @@ public class GrimDebug implements BuildableCommand {
 
     private static void sendKey(Sender sender, String key, String fallback, String targetName, int flags, int checks) {
         String raw = GrimAPI.INSTANCE.getConfigManager().getConfig().getStringElse(key, fallback)
-                .replace("%player%", targetName)
                 .replace("%flags%", String.valueOf(Math.max(0, flags)))
                 .replace("%checks%", String.valueOf(Math.max(0, checks)));
-        sender.sendMessage(MessageUtil.miniMessage(MessageUtil.replacePlaceholders(sender, raw)));
+        sender.sendMessage(DebugMessageUtil.targeted(raw, targetName,
+                message -> MessageUtil.miniMessage(MessageUtil.replacePlaceholders(sender, message))));
     }
 
     private @Nullable GrimPlayer parseTarget(@NotNull Sender sender, @Nullable Sender t) {

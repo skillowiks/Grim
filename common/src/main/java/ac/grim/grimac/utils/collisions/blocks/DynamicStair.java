@@ -31,6 +31,8 @@ public class DynamicStair implements CollisionFactory {
     protected static final SimpleCollisionBox OCTET_PPP = new HexCollisionBox(8.0D, 8.0D, 8.0D, 16.0D, 16.0D, 16.0D);
     protected static final CollisionBox[] TOP_SHAPES = makeShapes(TOP_AABB, OCTET_NNN, OCTET_PNN, OCTET_NNP, OCTET_PNP);
     protected static final CollisionBox[] BOTTOM_SHAPES = makeShapes(BOTTOM_AABB, OCTET_NPN, OCTET_PPN, OCTET_NPP, OCTET_PPP);
+    private static final CollisionBox[] MODERN_TOP_SHAPES = mergeStraightShapes(TOP_SHAPES);
+    private static final CollisionBox[] MODERN_BOTTOM_SHAPES = mergeStraightShapes(BOTTOM_SHAPES);
     private static final int[] SHAPE_BY_STATE = new int[]{12, 5, 3, 10, 14, 13, 7, 11, 13, 7, 11, 14, 8, 4, 1, 2, 4, 1, 2, 8};
 
     public static EnumShape getStairsShape(GrimPlayer player, WrappedBlockState originalStairs, int x, int y, int z) {
@@ -111,6 +113,31 @@ public class DynamicStair implements CollisionFactory {
         return voxelshape;
     }
 
+    private static CollisionBox[] mergeStraightShapes(CollisionBox[] shapes) {
+        CollisionBox[] merged = shapes.clone();
+        for (int mask : new int[]{3, 5, 10, 12}) {
+            SimpleCollisionBox[] parts = new SimpleCollisionBox[5];
+            shapes[mask].downCast(parts);
+            SimpleCollisionBox first = parts[1];
+            SimpleCollisionBox second = parts[2];
+            // Modern StairBlock joins and optimizes its voxels. The two adjacent
+            // octets of a straight stair have no internal collision plane.
+            // Keeping that plane blocks players escaping an existing overlap.
+            SimpleCollisionBox step = new SimpleCollisionBox(
+                    Math.min(first.minX, second.minX), Math.min(first.minY, second.minY), Math.min(first.minZ, second.minZ),
+                    Math.max(first.maxX, second.maxX), Math.max(first.maxY, second.maxY), Math.max(first.maxZ, second.maxZ));
+            merged[mask] = new ComplexCollisionBox(2, parts[0], step);
+        }
+        return merged;
+    }
+
+    static CollisionBox getCollisionShape(ClientVersion version, Half half, int mask) {
+        if (version.isNewerThanOrEquals(ClientVersion.V_1_13)) {
+            return (half == Half.BOTTOM ? MODERN_BOTTOM_SHAPES : MODERN_TOP_SHAPES)[mask].copy();
+        }
+        return (half == Half.BOTTOM ? BOTTOM_SHAPES : TOP_SHAPES)[mask].copy();
+    }
+
     @Override
     public CollisionBox fetch(GrimPlayer player, ClientVersion version, WrappedBlockState block, int x, int y, int z) {
         int shapeOrdinal;
@@ -122,7 +149,7 @@ public class DynamicStair implements CollisionFactory {
             EnumShape shape = getStairsShape(player, block, x, y, z);
             shapeOrdinal = shape.ordinal();
         }
-        return (block.getHalf() == Half.BOTTOM ? BOTTOM_SHAPES : TOP_SHAPES)[SHAPE_BY_STATE[getShapeIndex(block, shapeOrdinal)]].copy();
+        return getCollisionShape(version, block.getHalf(), SHAPE_BY_STATE[getShapeIndex(block, shapeOrdinal)]);
     }
 
     private int getShapeIndex(WrappedBlockState state, int shapeOrdinal) {

@@ -6,6 +6,7 @@ import ac.grim.grimac.checks.impl.movement.NoSlow;
 import ac.grim.grimac.checks.impl.prediction.OffsetHandler;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
+import ac.grim.grimac.utils.anticheat.DebugMessageUtil;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
 import ac.grim.grimac.utils.enums.FluidTag;
 import ac.grim.grimac.utils.latency.CompensatedWorld;
@@ -216,6 +217,7 @@ public final class DeepDebugSession {
                 + " firstExplosion=" + (p.firstBreadExplosion == null ? "none" : p.firstBreadExplosion.vector)
                 + " likelyExplosion=" + (p.likelyExplosions == null ? "none" : p.likelyExplosions.vector)
                 + " vectorType=" + p.predictedVelocity.vectorType
+                + " entityPush=" + EntityPushDebugSnapshot.capture(p)
                 + " fluidBlocks=" + captureFluidBlocks(p));
     }
 
@@ -285,7 +287,7 @@ public final class DeepDebugSession {
     /** Caller must hold the session monitor; the returned line is sent after release. */
     private synchronized Component drainSuppressedLine() {
         if (suppressedLines <= 0) return null;
-        Component line = Component.text("[" + LocalTime.now().format(TIME) + "] ... " + suppressedLines
+        Component line = Component.text("[" + targetName + "] [" + LocalTime.now().format(TIME) + "] ... " + suppressedLines
                 + " more flags suppressed (rate limit)", NamedTextColor.DARK_GRAY);
         suppressedLines = 0;
         return line;
@@ -305,14 +307,13 @@ public final class DeepDebugSession {
         String context = "sprint=" + bool(record.sprinting) + " food=" + record.food
                 + (record.usingItem ? " useItem" : "") + " ground=" + bool(record.onGround);
         String raw = GrimAPI.INSTANCE.getConfigManager().getConfig().getStringElse("deep-debug-flag-line",
-                "&8[&bDD&8] &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%");
+                "&8[&bDD&8] &f%player% &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%");
         raw = raw.replace("%time%", LocalTime.now().format(TIME))
                 .replace("%check%", record.checkName)
                 .replace("%verbose%", MessageUtil.miniMessageSafe(record.verbose))
                 .replace("%vl%", Integer.toString(record.vl))
-                .replace("%context%", context)
-                .replace("%player%", targetName);
-        return MessageUtil.miniMessage(raw);
+                .replace("%context%", context);
+        return DebugMessageUtil.targeted(raw, targetName, MessageUtil::miniMessage);
     }
 
     private static String bool(boolean value) {

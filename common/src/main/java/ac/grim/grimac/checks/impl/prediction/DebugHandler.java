@@ -78,7 +78,8 @@ public class DebugHandler extends AbstractDebugHandler implements PostPrediction
                 .append(O_PREFIX.color(NamedTextColor.NAMES.value(color)))
                 .append(Component.text(offset));
 
-        String prefix = player.platformPlayer == null ? "null" : player.platformPlayer.getName() + " ";
+        String name = player.user.getName() == null ? player.uuid.toString() : player.user.getName();
+        String prefix = "[" + name + "] ";
         Component prefixComponent = Component.text(prefix);
 
         boolean thisFlag = !color.equals("gray") && !color.equals("green");
@@ -96,26 +97,25 @@ public class DebugHandler extends AbstractDebugHandler implements PostPrediction
 
         if (thisFlag) {
             for (int i = 0; i < this.predicted.size(); i++) {
-                player.user.sendMessage(this.predicted.get(i));
-                player.user.sendMessage(this.actually.get(i));
-                player.user.sendMessage(this.offset.get(i));
+                player.user.sendMessage(prefixComponent.append(this.predicted.get(i)));
+                player.user.sendMessage(prefixComponent.append(this.actually.get(i)));
+                player.user.sendMessage(prefixComponent.append(this.offset.get(i)));
             }
         }
 
         for (GrimPlayer listener : listeners) {
-            Component listenerPrefix = listener == player ? Component.empty() : prefixComponent;
-            listener.sendMessage(listenerPrefix.append(p));
-            listener.sendMessage(listenerPrefix.append(a));
-            listener.sendMessage(listenerPrefix.append(o));
+            listener.sendMessage(prefixComponent.append(p));
+            listener.sendMessage(prefixComponent.append(a));
+            listener.sendMessage(prefixComponent.append(o));
         }
 
         listeners.removeIf(player -> player.platformPlayer != null && !player.platformPlayer.isOnline());
 
         if (outputToConsole) {
             Sender consoleSender = GrimAPI.INSTANCE.getPlatformServer().getConsoleSender();
-            consoleSender.sendMessage(p);
-            consoleSender.sendMessage(a);
-            consoleSender.sendMessage(o);
+            consoleSender.sendMessage(prefixComponent.append(p));
+            consoleSender.sendMessage(prefixComponent.append(a));
+            consoleSender.sendMessage(prefixComponent.append(o));
         }
     }
 

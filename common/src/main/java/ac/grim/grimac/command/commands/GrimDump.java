@@ -5,7 +5,6 @@ import ac.grim.grimac.command.BuildableCommand;
 import ac.grim.grimac.platform.api.PlatformPlugin;
 import ac.grim.grimac.platform.api.manager.cloud.CloudPlatformCommandArguments;
 import ac.grim.grimac.platform.api.sender.Sender;
-import ac.grim.grimac.utils.anticheat.MessageUtil;
 import ac.grim.grimac.utils.common.PropertiesUtil;
 import ac.grim.grimac.utils.reflection.ReflectionUtils;
 import ac.grim.grimac.utils.viaversion.ViaVersionUtil;
@@ -27,7 +26,7 @@ public class GrimDump implements BuildableCommand {
     private static final boolean PAPER = ReflectionUtils.hasClass("com.destroystokyo.paper.PaperConfig")
             || ReflectionUtils.hasClass("io.papermc.paper.configuration.Configuration");
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private String link = null; // these links should not expire for a while
+    private volatile String link = null; // these links should not expire for a while
 
     @Override
     public void register(CommandManager<Sender> commandManager, CloudPlatformCommandArguments arguments) {
@@ -43,9 +42,7 @@ public class GrimDump implements BuildableCommand {
         Sender sender = context.sender();
 
         if (link != null) {
-            sender.sendMessage(MessageUtil.miniMessage(GrimAPI.INSTANCE.getConfigManager().getConfig()
-                    .getStringElse("upload-log", "%prefix% &fUploaded debug to: %url%")
-                    .replace("%url%", link)));
+            GrimLog.sendUploadedLog(sender, link);
             return;
         }
         // TODO: change this back to application/json once allowed

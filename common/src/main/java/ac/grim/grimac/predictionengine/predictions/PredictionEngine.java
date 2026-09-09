@@ -1,5 +1,7 @@
 package ac.grim.grimac.predictionengine.predictions;
 
+import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
+import ac.grim.grimac.manager.deepdebug.EntityPushDebugSnapshot;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.predictionengine.HorizontalCollisionUncertainty;
 import ac.grim.grimac.predictionengine.SneakingEstimator;
@@ -192,6 +194,12 @@ public class PredictionEngine {
         player.predictedVelocity = bestCollisionVel; // Set predicted vel to get the vector types later in the move method
         player.stuckSpeedMultiplier = bestCollisionVel.stuckSpeedMultiplier;
         player.boundingBox = originalBB;
+
+        // Preserve consumed uncertainty before the movement ticker resets it.
+        // Formatting runs only for an active debug session, once per chosen prediction.
+        final Vector3dm chosenBeforeCollision = beforeCollisionMovement;
+        DeepDebugManager.get().recordPredictionEvent(player,
+                () -> EntityPushDebugSnapshot.capturePrediction(player, chosenBeforeCollision));
 
         // Do not force a reset: a client may also have reached the wall with a
         // movement difference below Mth.equal's tolerance and retained momentum.

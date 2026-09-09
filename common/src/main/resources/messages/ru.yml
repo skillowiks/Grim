@@ -22,6 +22,9 @@ upload-log: "%prefix% &fОтладка была загружена на: %url%"
 upload-log-start: "%prefix% &fЗагрузка журнала... пожалуйста, подождите"
 upload-log-not-found: "%prefix% &cНевозможно найти этот журнал"
 upload-log-upload-failure: "%prefix% &cЧто-то пошло не так при загрузке этого журнала, смотрите консоль для получения дополнительной информации"
+# В отчётах игроков доступен %player%; в старые шаблоны без него имя добавляется автоматически.
+upload-log-copy-hint: "Нажмите, чтобы скопировать ссылку"
+upload-log-open: "&7[Открыть]"
 disconnect:
     timeout: "<lang:disconnect.timeout>"
     closed: "<lang:disconnect.closed>"
@@ -139,7 +142,7 @@ deep-debug-stopped: "%prefix% &bГлубокий дебаг выключен д�
 deep-debug-no-session: "%prefix% &cНет активной сессии дебага для &f%player%&c. Запусти: &7/grim debug %player%"
 deep-debug-report-summary: "%prefix% &bОтчёт дебага для &f%player%&b: &f%flags%&b флагов по &f%checks%&b чекам. Выгружаю..."
 # Живая строка на каждый флаг — допустимые плейсхолдеры: %time% %check% %verbose% %vl% %context% %player%
-deep-debug-flag-line: "&8[&bDD&8] &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%"
+deep-debug-flag-line: "&8[&bDD&8] &f%player% &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%"
 
 config-flavor: V2
 config-version: 2

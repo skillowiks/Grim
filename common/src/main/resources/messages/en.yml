@@ -22,6 +22,9 @@ upload-log: "%prefix% &fUploaded debug to: %url%"
 upload-log-start: "%prefix% &fUploading log... please wait"
 upload-log-not-found: "%prefix% &cUnable to find that log"
 upload-log-upload-failure: "%prefix% &cSomething went wrong while uploading this log, see console for more info"
+# Player reports support %player%; older templates without it receive a player label automatically.
+upload-log-copy-hint: "Click to copy the URL"
+upload-log-open: "&7[Open]"
 disconnect:
     timeout: "<lang:disconnect.timeout>"
     closed: "<lang:disconnect.closed>"
@@ -137,7 +140,7 @@ deep-debug-stopped: "%prefix% &bDeep debug disabled for &f%player%&b. &7(%flags%
 deep-debug-no-session: "%prefix% &cNo deep-debug session is running for &f%player%&c. Start one with &7/grim debug %player%"
 deep-debug-report-summary: "%prefix% &bDeep debug report for &f%player%&b: &f%flags%&b flags across &f%checks%&b unique checks. Uploading..."
 # Live per-flag line — valid placeholders: %time% %check% %verbose% %vl% %context% %player%
-deep-debug-flag-line: "&8[&bDD&8] &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%"
+deep-debug-flag-line: "&8[&bDD&8] &f%player% &7%time% &b%check% &f%verbose% &8(x%vl%) &7%context%"
 
 config-flavor: V2
 config-version: 2

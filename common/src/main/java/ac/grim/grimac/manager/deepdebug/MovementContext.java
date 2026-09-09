@@ -107,7 +107,9 @@ public final class MovementContext {
     private static String uncertainty(UncertaintyHandler u) {
         StringBuilder sb = new StringBuilder();
         if (!u.pistonX.isEmpty() || !u.pistonY.isEmpty() || !u.pistonZ.isEmpty()) {
-            appendKeyValue(sb, "piston", u.pistonX.size() + "/" + u.pistonY.size() + "/" + u.pistonZ.size());
+            appendKeyValue(sb, "pistonX", EntityPushDebugSnapshot.history(u.pistonX));
+            appendKeyValue(sb, "pistonY", EntityPushDebugSnapshot.history(u.pistonY));
+            appendKeyValue(sb, "pistonZ", EntityPushDebugSnapshot.history(u.pistonZ));
         }
         if (!u.slimePistonBounces.isEmpty()) appendKeyValue(sb, "slimePistonBounce", String.valueOf(u.slimePistonBounces));
         if (u.isStepMovement) appendKeyValue(sb, "step", "true");
@@ -121,8 +123,8 @@ public final class MovementContext {
         if (u.isOrWasNearGlitchyBlock) appendKeyValue(sb, "glitchyBlock", "true");
         if (u.onGroundUncertain) appendKeyValue(sb, "groundUncertain", "true");
         if (u.wasAffectedByStuckSpeed()) appendKeyValue(sb, "stuckSpeed", "true");
-        if (!u.collidingEntities.isEmpty()) appendKeyValue(sb, "collidingEntities", String.valueOf(u.collidingEntities.size()));
-        if (!u.riptideEntities.isEmpty()) appendKeyValue(sb, "riptideEntities", String.valueOf(u.riptideEntities.size()));
+        if (!u.collidingEntities.isEmpty()) appendKeyValue(sb, "collidingEntities", EntityPushDebugSnapshot.history(u.collidingEntities));
+        if (!u.riptideEntities.isEmpty()) appendKeyValue(sb, "riptideEntities", EntityPushDebugSnapshot.history(u.riptideEntities));
         if (!u.fishingRodPulls.isEmpty()) appendKeyValue(sb, "fishingRodPulls", String.valueOf(u.fishingRodPulls.size()));
         if (u.fireworksBox != null) appendKeyValue(sb, "fireworksBox", "set");
         if (u.stuckOnEdge.hasOccurredSince(1)) appendKeyValue(sb, "stuckOnEdge", "true");
