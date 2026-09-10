@@ -1,6 +1,7 @@
 package ac.grim.grimac;
 
 import ac.grim.grimac.api.event.EventBus;
+import ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotReportPublisher;
 import ac.grim.grimac.api.plugin.GrimPlugin;
 import ac.grim.grimac.api.storage.backend.BackendRegistry;
 import ac.grim.grimac.internal.plugin.resolver.GrimExtensionManager;
@@ -53,6 +54,7 @@ public final class GrimAPI {
     private final EventBus eventBus;
     private final GrimExternalAPI externalAPI;
     private final DeepDebugManager deepDebugManager;
+    private final TriggerBotReportPublisher triggerBotReportPublisher = new TriggerBotReportPublisher();
     private DataStoreLifecycle dataStoreLifecycle;
     private final BackendRegistry backendRegistry = buildBackendRegistry();
     private PlatformLoader loader;

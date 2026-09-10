@@ -2,6 +2,7 @@ package ac.grim.grimac.manager.deepdebug;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.checks.Check;
+import ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotReportSlot;
 import ac.grim.grimac.checks.impl.movement.NoSlow;
 import ac.grim.grimac.checks.impl.prediction.OffsetHandler;
 import ac.grim.grimac.platform.api.sender.Sender;
@@ -61,7 +62,7 @@ public final class DeepDebugSession {
     private final Set<Sender> listeners = new CopyOnWriteArraySet<>();
 
     private volatile boolean stopped = false;
-    private volatile String triggerBotReport = "No TriggerBot observations captured yet.";
+    private final TriggerBotReportSlot triggerBotReport = new TriggerBotReportSlot();
     private volatile long stoppedAtMs;
     // Live-line rate limiting state (netty thread only in practice)
     private long liveWindowStartMs;
@@ -93,13 +94,21 @@ public final class DeepDebugSession {
         return stopped;
     }
 
-    /** Immutable text published by the packet-thread observer; report building may be asynchronous. */
+    /** Replace status and invalidate any in-flight asynchronous snapshot. */
     public void setTriggerBotReport(String report) {
-        if (!stopped) triggerBotReport = report;
+        if (!stopped) triggerBotReport.replace(report);
+    }
+
+    public long reserveTriggerBotReport() {
+        return triggerBotReport.reserve();
+    }
+
+    public void publishTriggerBotReport(long version, String report) {
+        if (!stopped) triggerBotReport.publish(version, report);
     }
 
     public String triggerBotReport() {
-        return triggerBotReport;
+        return triggerBotReport.text();
     }
 
     public void addListener(Sender listener) {
@@ -145,6 +154,7 @@ public final class DeepDebugSession {
 
     void stop() {
         stopped = true;
+        triggerBotReport.freeze(); // Reject even a worker that read !stopped immediately before stop.
         stoppedAtMs = System.currentTimeMillis();
         // Chat I/O stays outside the session monitor (netty threads broadcast through it).
         Component pending = drainSuppressedLine();

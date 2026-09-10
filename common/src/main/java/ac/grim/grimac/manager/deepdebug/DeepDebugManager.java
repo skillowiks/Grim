@@ -2,6 +2,7 @@ package ac.grim.grimac.manager.deepdebug;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.checks.Check;
+import ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotObserver;
 import ac.grim.grimac.platform.api.manager.PluginAttributionProvider;
 import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
@@ -138,6 +139,9 @@ public final class DeepDebugManager {
         DeepDebugSession session = getSession(player.uuid);
         if (session == null || session.isStopped()) return null;
 
+        // Optional observation must capture cooldown/sprint BEFORE attack prediction resets them.
+        player.checkManager.get(TriggerBotObserver.class)
+                .captureBeforeAttack(session, event, entityId);
         PacketEntity target = player.compensatedEntities.getEntity(entityId);
         ItemStack heldItem = player.inventory.getHeldItem();
         String knockback = player.compensatedEntities.self.getAttribute(Attributes.ATTACK_KNOCKBACK)

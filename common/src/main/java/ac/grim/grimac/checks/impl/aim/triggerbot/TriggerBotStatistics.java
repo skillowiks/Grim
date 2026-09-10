@@ -103,8 +103,16 @@ public final class TriggerBotStatistics {
         episodes.clear();
     }
 
-    public synchronized Snapshot snapshot() {
-        List<Episode> copy = List.copyOf(episodes);
+    /** Cheap packet-thread handoff: copy at most 128 immutable records, without aggregation or formatting. */
+    public synchronized List<Episode> copyEpisodes() {
+        return List.copyOf(episodes);
+    }
+
+    public Snapshot snapshot() {
+        return summarizeSnapshot(copyEpisodes());
+    }
+
+    private static Snapshot summarizeSnapshot(List<Episode> copy) {
         Map<String, List<Episode>> byWeapon = new HashMap<>();
         for (Episode episode : copy) byWeapon.computeIfAbsent(episode.weapon(), ignored -> new ArrayList<>()).add(episode);
         return new Snapshot(copy, summarize(copy, episode -> true),
@@ -115,7 +123,14 @@ public final class TriggerBotStatistics {
     }
 
     public String formatReport() {
-        Snapshot snapshot = snapshot();
+        return formatReport(copyEpisodes());
+    }
+
+    /** Pure formatting of a bounded handoff; safe for a worker with no live recorder access. */
+    public static String formatReport(List<Episode> episodes) {
+        Objects.requireNonNull(episodes, "episodes");
+        if (episodes.size() > MAX_EPISODES) throw new IllegalArgumentException("too many episodes");
+        Snapshot snapshot = summarizeSnapshot(List.copyOf(episodes));
         StringBuilder report = new StringBuilder("TriggerBot observations: window=")
                 .append(snapshot.all().sampled()).append('/').append(MAX_EPISODES)
                 .append(", weapons=").append(snapshot.distinctWeapons()).append('\n');

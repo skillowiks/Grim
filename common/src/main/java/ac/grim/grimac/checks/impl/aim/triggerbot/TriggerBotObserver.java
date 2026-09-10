@@ -1,5 +1,6 @@
 package ac.grim.grimac.checks.impl.aim.triggerbot;
 
+import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.api.config.ConfigManager;
 import ac.grim.grimac.checks.GrimProcessor;
 import ac.grim.grimac.checks.type.PacketReceiveListener;
@@ -19,6 +20,7 @@ import com.github.retrooper.packetevents.protocol.item.ItemStack;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.GameMode;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotGeometry.*;
 
@@ -52,6 +55,48 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         enabled = config.getBooleanElse("TriggerBot.observation-enabled", true);
     }
 
+    /** Existing pre-attack debug hook; reads only, before cooldown/sprint prediction consumes inputs. */
+    public void captureBeforeAttack(DeepDebugSession session, PacketReceiveEvent event, int id) {
+        if (!enabled || session.isStopped() || !player.supportsEndTick() || event.isCancelled()
+                || event.getPacketType() != PacketType.Play.Client.INTERACT_ENTITY) return;
+        try {
+            ensureRecording(session);
+            Recording r = recording;
+            if (r.failed) return;
+            PacketEntity entity = player.compensatedEntities.entityMap.get(id);
+            if (entity == null || entity.getType() != EntityTypes.PLAYER || entity.isDead) return;
+            long interval = r.tick + 1; // Same label as the next tick-end, including same-interval attacks.
+            r.attackSamples.record(new TriggerBotAttackSamples.Sample(interval, id,
+                    player.attackCooldown.getMinimumProgress(),
+                    player.compensatedEntities.self.getAttributeValue(Attributes.ATTACK_SPEED),
+                    player.actualMovement == null ? Double.NaN : player.actualMovement.getY(),
+                    player.onGround, player.isSprinting, player.packetStateData.isSlowedByUsingItem(),
+                    age(interval, r.lastSprintStartTick), age(interval, r.lastSprintStopTick),
+                    age(interval, r.lastAttackSampleTick), player.inventory.getHeldItem().getType().getName().toString()));
+            r.lastAttackSampleTick = interval;
+        } catch (RuntimeException exception) {
+            failRecording(exception);
+        }
+    }
+
+    private static long age(long tick, long previous) {
+        return previous < 0 ? -1 : tick - previous;
+    }
+
+    private void ensureRecording(DeepDebugSession session) {
+        long generation = GrimAPI.INSTANCE.getTriggerBotReportPublisher().generation();
+        if (recording == null || recording.session != session || recording.publisherGeneration != generation) {
+            recording = new Recording(session, generation);
+        }
+    }
+
+    private void failRecording(RuntimeException exception) {
+        if (recording == null) return;
+        recording.failed = true;
+        recording.session.setTriggerBotReport("Observation stopped: " + exception.getClass().getSimpleName()
+                + ". No verdict; restart debug after reporting this error.");
+    }
+
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
         if (player.uuid == null) return;
@@ -61,7 +106,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             if (session != null && !enabled) session.setTriggerBotReport("Observation disabled in config.");
             return;
         }
-        if (recording == null || recording.session != session) recording = new Recording(session);
+        ensureRecording(session);
         Recording r = recording;
         if (r.failed) return;
         try {
@@ -69,9 +114,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         } catch (RuntimeException exception) {
             // Fail closed for this recording; an optional observer must never break
             // the packet pipeline. Do not expose exception messages/item payloads.
-            r.failed = true;
-            r.session.setTriggerBotReport("Observation stopped: " + exception.getClass().getSimpleName()
-                    + ". No verdict; restart debug after reporting this error.\n" + r.statistics.formatReport());
+            failRecording(exception);
         }
     }
 
@@ -79,6 +122,11 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         if (!player.supportsEndTick()) {
             r.session.setTriggerBotReport("Unsupported client/server tick-end combination. No observations or verdict.");
             return;
+        }
+        if (event.getPacketType() == PacketType.Play.Client.ENTITY_ACTION && !event.isCancelled()) {
+            var action = new WrapperPlayClientEntityAction(event).getAction();
+            if (action == WrapperPlayClientEntityAction.Action.START_SPRINTING) r.lastSprintStartTick = r.tick + 1;
+            else if (action == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) r.lastSprintStopTick = r.tick + 1;
         }
         if (event.isCancelled() || player.packetStateData.lastPacketWasTeleport
                 || player.packetStateData.lastPacketWasOnePointSeventeenDuplicate) {
@@ -146,7 +194,9 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         r.quietTicks = Math.max(0, r.quietTicks - 1);
         r.invalidInterval = false;
         r.pendingAttacks.clear();
-        if (r.dirty || r.tick % 20 == 0) r.publish();
+        // At most one immutable snapshot per second and per 20 client tick-ends.
+        // Formatting is never performed here, including when the queue is full.
+        if (r.tick - r.lastPublishTick >= 20 && now - r.lastPublishNanos >= 1_000_000_000L) r.publish(now);
     }
 
     private String eligibilityProblem() {
@@ -261,32 +311,80 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
 
     private static final class Recording {
         final DeepDebugSession session;
+        final long publisherGeneration;
         final TriggerBotStatistics statistics = new TriggerBotStatistics();
+        final TriggerBotAttackSamples attackSamples = new TriggerBotAttackSamples();
         final TriggerBotEpisodes episodes;
         final Map<Integer, Target> targets = new LinkedHashMap<>();
         final List<Integer> pendingAttacks = new ArrayList<>(MAX_TARGETS);
         final Map<String, Long> exclusions = new LinkedHashMap<>();
         long tick, lastTickNanos, observedTicks, excludedTicks, unknownGeometry, attacks;
+        long lastSprintStartTick = -1, lastSprintStopTick = -1, lastAttackSampleTick = -1;
+        long lastPublishTick, lastPublishNanos, skippedReports;
+        final AtomicBoolean publicationPending = new AtomicBoolean();
         int quietTicks;
         String weapon, lastExclusion = "none";
         double reach;
-        boolean invalidInterval, dirty, failed;
+        boolean invalidInterval, failed;
 
-        Recording(DeepDebugSession session) {
+        Recording(DeepDebugSession session, long publisherGeneration) {
             this.session = session;
-            episodes = new TriggerBotEpisodes(episode -> { statistics.record(episode); dirty = true; });
-            publish();
+            this.publisherGeneration = publisherGeneration;
+            lastPublishNanos = System.nanoTime();
+            episodes = new TriggerBotEpisodes(statistics::record);
+            session.setTriggerBotReport("Observation only; waiting for an asynchronous snapshot. No verdict.");
         }
 
-        void publish() {
-            session.setTriggerBotReport("Mode: observation only; no VL, alerts, database records, cancellations or punishments.\n"
+        void publish(long now) {
+            lastPublishTick = tick;
+            lastPublishNanos = now;
+            if (!publicationPending.compareAndSet(false, true)) {
+                skippedReports++;
+                return;
+            }
+            ReportSnapshot snapshot = new ReportSnapshot(tick, observedTicks, excludedTicks, unknownGeometry,
+                    attacks, lastExclusion, Map.copyOf(exclusions), episodes.pendingEpisodes(), skippedReports,
+                    statistics.copyEpisodes(), attackSamples.copySamples());
+            long version = session.reserveTriggerBotReport();
+            if (version < 0) {
+                publicationPending.set(false);
+                return;
+            }
+            // Capture only immutable data, the publication slot and its gate, never player/cache/recorder state.
+            DeepDebugSession destination = session;
+            AtomicBoolean gate = publicationPending;
+            boolean accepted = GrimAPI.INSTANCE.getTriggerBotReportPublisher().trySubmit(() -> {
+                try {
+                    destination.publishTriggerBotReport(version, snapshot.format());
+                } catch (RuntimeException exception) {
+                    destination.publishTriggerBotReport(version, "Observation report unavailable: "
+                            + exception.getClass().getSimpleName() + ". No verdict.");
+                } finally {
+                    gate.set(false);
+                }
+            });
+            if (!accepted) {
+                publicationPending.set(false);
+                skippedReports++;
+            }
+        }
+    }
+
+    private record ReportSnapshot(long tick, long observedTicks, long excludedTicks, long unknownGeometry,
+                                  long attacks, String lastExclusion, Map<String, Long> exclusions,
+                                  int pendingEpisodes, long skippedReports,
+                                  List<TriggerBotStatistics.Episode> episodes,
+                                  List<TriggerBotAttackSamples.Sample> attackSamples) {
+        String format() {
+            return "Mode: observation only; no VL, alerts, database records, cancellations or punishments.\n"
                     + "Delay = sampled client tick-end intervals, NOT visual reaction time. Same-tick hits are not evidence of cheating.\n"
                     + "Recent attacked targets only (max 4); first encounter excluded. Clear standing-player geometry only.\n"
                     + "ticks=" + tick + ", observed=" + observedTicks + ", excluded=" + excludedTicks
                     + ", unknownGeometry=" + unknownGeometry + ", attacks=" + attacks + ", lastExclusion=" + lastExclusion + "\n"
-                    + "excludedTicksByReason=" + exclusions + ", pendingCensored=" + episodes.pendingEpisodes() + "\n"
-                    + statistics.formatReport());
-            dirty = false;
+                    + "excludedTicksByReason=" + exclusions + ", pendingCensored=" + pendingEpisodes + "\n"
+                    + "Asynchronous snapshot through tick=" + tick + ", skippedPublications=" + skippedReports
+                    + "; may lag; packet processing does not wait for report completion.\n"
+                    + TriggerBotStatistics.formatReport(episodes) + TriggerBotAttackSamples.formatReport(attackSamples);
         }
     }
 }

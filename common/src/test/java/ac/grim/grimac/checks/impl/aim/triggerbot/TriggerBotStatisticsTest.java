@@ -2,6 +2,7 @@ package ac.grim.grimac.checks.impl.aim.triggerbot;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.Locale;
 
 import static ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotStatistics.Outcome.*;
@@ -239,6 +240,22 @@ class TriggerBotStatisticsTest {
         assertTrue(finalRows.get(31).contains("outcome=UNKNOWN delayTicks=-1 switchedTarget=true airborneAtEntry=true"));
         assertTrue(finalRows.get(31).endsWith("weapon=\"sword\\\"\\\\?forged\""));
         assertFalse(stats.formatReport().lines().anyMatch(line -> line.startsWith("forged")));
+    }
+
+    @Test
+    void immutableEpisodeHandoffCanBeFormattedAfterTheLiveRecorderChanges() {
+        TriggerBotStatistics stats = new TriggerBotStatistics();
+        stats.record(hit(2));
+        var handoff = stats.copyEpisodes();
+        String expected = stats.formatReport();
+        assertThrows(UnsupportedOperationException.class, handoff::clear);
+        stats.reset();
+        stats.record(nonHit(MISSED));
+        assertEquals(expected, TriggerBotStatistics.formatReport(handoff));
+        assertEquals(HIT, handoff.get(0).outcome());
+        assertNotEquals(expected, stats.formatReport());
+        assertThrows(IllegalArgumentException.class, () -> TriggerBotStatistics.formatReport(
+                Collections.nCopies(TriggerBotStatistics.MAX_EPISODES + 1, hit(0))));
     }
 
     private static TriggerBotStatistics.Episode hit(int delay) {
