@@ -235,5 +235,10 @@ update-permission-ticks: -1
 #                   instead of silently flat-merging into the wrong keys.
 #   config-version: bumped on every breaking shape change. Old configs
 #                   auto-migrate up via the bundled updater on next start.
+# Experimental TriggerBot research: runs only during /grim debug <player>.
+# Adds descriptive observations to the report, never flags or punishes.
+TriggerBot:
+    observation-enabled: true
+
 config-flavor: V2
 config-version: 11

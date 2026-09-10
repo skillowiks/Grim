@@ -44,6 +44,7 @@ public final class DeepDebugReport {
         environment(sb, session);
         clientSuspects(sb, session, flags);
         movementContexts(sb, flags);
+        sb.append("\n--- TRIGGERBOT OBSERVATION ---\n").append(session.triggerBotReport()).append('\n');
         sb.append("\n--- SIMULATION / NOSLOW MOVEMENT TRACES ---\n")
                 .append("Last 3 windows; up to 60 movements before and 40 after each trigger.\n");
         List<String> traces = session.movementTracesSnapshot();

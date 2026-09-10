@@ -24,6 +24,7 @@ import ac.grim.grimac.utils.enums.Pose;
 import com.github.retrooper.packetevents.protocol.attribute.Attribute;
 import com.github.retrooper.packetevents.protocol.attribute.Attributes;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType;
+import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
 import com.github.retrooper.packetevents.protocol.item.ItemStack;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.EquipmentSlot;
@@ -306,6 +307,28 @@ public class PacketEntity extends TypedPacketEntity {
         }
 
         return ReachInterpolationData.combineCollisionBox(oldPacketLocation.getPossibleHitboxCombined(), newPacketLocation.getPossibleHitboxCombined());
+    }
+
+    /**
+     * Read-only intersection of all represented standing-player hitboxes, or
+     * null when no positive-volume intersection is known. This does not replace
+     * the outer collision envelope used by Reach or movement prediction.
+     */
+    public @Nullable SimpleCollisionBox getGuaranteedCollisionBox() {
+        if (getType() != EntityTypes.PLAYER || isDead || isBaby || riding != null
+                || currentPose != Pose.STANDING || transitionalPose != null || newPacketLocation == null) return null;
+        SimpleCollisionBox current = newPacketLocation.getGuaranteedHitbox();
+        if (current == null || oldPacketLocation == null) return current;
+        SimpleCollisionBox previous = oldPacketLocation.getGuaranteedHitbox();
+        if (previous == null) return null;
+        double minX = Math.max(current.minX, previous.minX);
+        double minY = Math.max(current.minY, previous.minY);
+        double minZ = Math.max(current.minZ, previous.minZ);
+        double maxX = Math.min(current.maxX, previous.maxX);
+        double maxY = Math.min(current.maxY, previous.maxY);
+        double maxZ = Math.min(current.maxZ, previous.maxZ);
+        return minX < maxX && minY < maxY && minZ < maxZ
+                ? new SimpleCollisionBox(minX, minY, minZ, maxX, maxY, maxZ, false) : null;
     }
 
     public OptionalInt getPotionEffectLevel(PotionType effect) {

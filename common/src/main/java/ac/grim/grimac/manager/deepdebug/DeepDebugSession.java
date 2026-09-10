@@ -61,6 +61,7 @@ public final class DeepDebugSession {
     private final Set<Sender> listeners = new CopyOnWriteArraySet<>();
 
     private volatile boolean stopped = false;
+    private volatile String triggerBotReport = "No TriggerBot observations captured yet.";
     private volatile long stoppedAtMs;
     // Live-line rate limiting state (netty thread only in practice)
     private long liveWindowStartMs;
@@ -90,6 +91,15 @@ public final class DeepDebugSession {
 
     public boolean isStopped() {
         return stopped;
+    }
+
+    /** Immutable text published by the packet-thread observer; report building may be asynchronous. */
+    public void setTriggerBotReport(String report) {
+        if (!stopped) triggerBotReport = report;
+    }
+
+    public String triggerBotReport() {
+        return triggerBotReport;
     }
 
     public void addListener(Sender listener) {

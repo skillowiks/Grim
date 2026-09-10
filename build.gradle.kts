@@ -14,7 +14,7 @@ import versioning.VersionUtil
 
 BuildConfig.init(project)
 
-val baseVersion = "2.3.74-simfix13"
+val baseVersion = "2.3.74-simfix14"
 group = "ac.grim.grimac"
 version = VersionUtil.computeVersion(project, baseVersion)
 description = "Libre simulation anticheat designed for 26.2 with 1.8–26.2 support, powered by PacketEvents 2.0."

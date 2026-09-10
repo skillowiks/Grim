@@ -254,6 +254,39 @@ public class ReachInterpolationData {
         return minimumInterpLocation;
     }
 
+    /**
+     * Intersection of fixed-size hitboxes at every represented feet position.
+     * Unlike getPossibleHitboxCombined(), this can be empty when interpolation
+     * uncertainty is wider than the entity. Neither interpolation nor its boxes
+     * are changed. Callers must first exclude uncertain dimensions/poses.
+     */
+    public @Nullable SimpleCollisionBox getGuaranteedHitbox() {
+        SimpleCollisionBox positions = getPossibleLocationCombined();
+        if (expandNonRelative) positions.expand(0.03125D, 0.015625D, 0.03125D);
+        double[] dimensions = GetBoundingBox.getEntityDimensions(player, entity);
+        return guaranteedHitbox(positions, dimensions[0], dimensions[1], dimensions[2]);
+    }
+
+    static @Nullable SimpleCollisionBox guaranteedHitbox(SimpleCollisionBox positions, double width, double height, double depth) {
+        if (positions == null || !Double.isFinite(width) || !Double.isFinite(height) || !Double.isFinite(depth)
+                || width <= 0 || height <= 0 || depth <= 0
+                || !Double.isFinite(positions.minX) || !Double.isFinite(positions.minY) || !Double.isFinite(positions.minZ)
+                || !Double.isFinite(positions.maxX) || !Double.isFinite(positions.maxY) || !Double.isFinite(positions.maxZ)
+                || positions.minX > positions.maxX || positions.minY > positions.maxY || positions.minZ > positions.maxZ) {
+            return null;
+        }
+        double minX = positions.maxX - width / 2;
+        double minY = positions.maxY;
+        double minZ = positions.maxZ - depth / 2;
+        double maxX = positions.minX + width / 2;
+        double maxY = positions.minY + height;
+        double maxZ = positions.minZ + depth / 2;
+        if (!Double.isFinite(minX) || !Double.isFinite(minZ) || !Double.isFinite(maxX)
+                || !Double.isFinite(maxY) || !Double.isFinite(maxZ)
+                || minX >= maxX || minY >= maxY || minZ >= maxZ) return null;
+        return new SimpleCollisionBox(minX, minY, minZ, maxX, maxY, maxZ, false);
+    }
+
     public void updatePossibleStartingLocation(SimpleCollisionBox possibleLocationCombined) {
         //GrimACBukkitLoaderPlugin.staticGetLogger().info(ChatColor.BLUE + "Updated new starting location as second trans hasn't arrived " + startingLocation);
         this.startingLocation = combineCollisionBox(startingLocation, possibleLocationCombined);
