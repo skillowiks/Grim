@@ -10,9 +10,10 @@ import java.util.concurrent.TimeUnit;
 
 /** Experimental notification-only check. Geometry is supplied by the shared observer. */
 @CheckData(name = "TriggerBot", stableKey = "grim.aim.triggerbot", experimental = true, setback = -1,
-        decay = 1, description = "Experimental consistency of ready, grounded target reacquisitions")
+        decay = 1, description = "Experimental consistency of target, cooldown and critical-hit opportunities")
 public final class TriggerBot extends Check {
     private final TriggerBotDetector detector = new TriggerBotDetector();
+    private final TriggerBotOpportunityDetector opportunities = new TriggerBotOpportunityDetector();
     private volatile boolean configuredEnabled;
     private volatile long alertIntervalNanos;
     private volatile long configGeneration;
@@ -58,16 +59,17 @@ public final class TriggerBot extends Check {
 
     public void resetDetector() {
         detector.reset();
+        opportunities.reset();
     }
 
     private boolean prepare(long now) {
         long generation = configGeneration;
         if (appliedGeneration != generation) {
-            detector.reset();
+            resetDetector();
             appliedGeneration = generation;
         }
         if (!isDetectionEnabled()) {
-            detector.reset();
+            resetDetector();
             return false;
         }
         if (lastDecayNanos == 0 || now - lastDecayNanos >= TimeUnit.SECONDS.toNanos(30)) {
@@ -78,24 +80,52 @@ public final class TriggerBot extends Check {
     }
 
     public void invalidate(long tick, long now) {
+        if (prepare(now)) {
+            detector.invalidate(tick, now);
+            opportunities.invalidate(tick, now);
+        }
+    }
+
+    public void invalidateGrounded(long tick, long now) {
         if (prepare(now)) detector.invalidate(tick, now);
+    }
+
+    public void invalidateOpportunities(long tick, long now) {
+        if (prepare(now)) opportunities.invalidate(tick, now);
     }
 
     public void observe(TriggerBotDetector.Frame frame) {
         if (!prepare(frame.nowNanos())) return;
         TriggerBotDetector.Evidence evidence = detector.accept(frame);
         if (evidence == null) return;
+        emitCandidate(frame.nowNanos(), "experimental grounded reacquisitions: samples=" + evidence.episodes()
+                + " attacks=" + evidence.hits() + " fast(0-1t)=" + evidence.fastHits()
+                + " sameTick=" + evidence.zeroDelayHits() + " span=" + evidence.elapsedTicks()
+                + "t; review only");
+    }
+
+    public void observeOpportunity(TriggerBotOpportunityDetector.Frame frame) {
+        if (!prepare(frame.nowNanos())) return;
+        TriggerBotOpportunityDetector.Evidence evidence = opportunities.accept(frame);
+        if (evidence == null) return;
+        emitCandidate(frame.nowNanos(), "experimental opportunities: profile=" + evidence.profile().name()
+                + " mode=" + evidence.profile().mode() + " family=" + evidence.family() + " samples=" + evidence.episodes()
+                + " attacks=" + evidence.hits() + " prompt(0-2t)=" + evidence.promptHits()
+                + " acquisition=" + evidence.acquisitionOpportunities() + " falling=" + evidence.fallingOpportunities()
+                + " cooldown=" + evidence.cooldownOpportunities() + " sprintSequence=" + evidence.sprintCorroboratedHits()
+                + " queued=" + evidence.queuedOpportunities() + " promptControls=" + evidence.promptControlHits()
+                + " span=" + evidence.elapsedTicks() + "t; review only");
+    }
+
+    private void emitCandidate(long now, String verbose) {
         candidateSignals++;
-        if (lastAlertNanos != 0 && frame.nowNanos() - lastAlertNanos < alertIntervalNanos) {
+        if (lastAlertNanos != 0 && now - lastAlertNanos < alertIntervalNanos) {
             intervalSuppressedSignals++;
             return;
         }
         // Consume fresh evidence even when an API subscriber suppresses the alert.
-        lastAlertNanos = frame.nowNanos();
-        boolean accepted = flag("experimental grounded reacquisitions: samples=" + evidence.episodes()
-                + " attacks=" + evidence.hits() + " fast(0-1t)=" + evidence.fastHits()
-                + " sameTick=" + evidence.zeroDelayHits() + " span=" + evidence.elapsedTicks()
-                + "t; review only");
+        lastAlertNanos = now;
+        boolean accepted = flag(verbose);
         if (accepted) emittedFlags++;
         else suppressedFlags++;
     }
@@ -106,24 +136,44 @@ public final class TriggerBot extends Check {
         long remaining = lastAlertNanos == 0 ? 0 : Math.max(0, alertIntervalNanos - (now - lastAlertNanos));
         return new Snapshot(disabled == null ? "enabled" : disabled, configuredEnabled, isEnabled(),
                 TimeUnit.NANOSECONDS.toMillis(remaining), candidateSignals, intervalSuppressedSignals,
-                emittedFlags, suppressedFlags, detector.snapshot());
+                emittedFlags, suppressedFlags, detector.snapshot(), opportunities.snapshot());
     }
 
     record Snapshot(String state, boolean configuredEnabled, boolean punishmentGroupEnabled,
                     long alertCooldownMillis, long candidateSignals, long intervalSuppressedSignals,
-                    long emittedFlags, long suppressedFlags, TriggerBotDetector.Snapshot progress) {
+                    long emittedFlags, long suppressedFlags, TriggerBotDetector.Snapshot progress,
+                    TriggerBotOpportunityDetector.Snapshot opportunityProgress) {
         String format() {
             return "Detector status=" + state + ", configEnabled=" + configuredEnabled
                     + ", punishmentGroupEnabled=" + punishmentGroupEnabled
                     + ", alertCooldownMillis=" + alertCooldownMillis + "\n"
-                    + "Detector current window=" + progress.completedEpisodes() + "/32, hits=" + progress.hits()
+                    + "Grounded reacquisition window=" + progress.completedEpisodes() + "/32, hits=" + progress.hits()
                     + ", fast(0-1t)=" + progress.fastHits() + ", sameTick=" + progress.zeroDelayHits()
                     + ", censored=" + progress.censored() + ", gapBuckets=" + progress.gapBuckets()
                     + ", outsideStreak=" + progress.outsideStreak() + "/3, pending=" + progress.pending()
                     + ", supportWindow=" + progress.supportWindow() + ". A signal requires two fresh passing windows.\n"
+                    + formatOpportunities()
                     + "Detector signals since join: candidates=" + candidateSignals
                     + ", intervalSuppressed=" + intervalSuppressedSignals + ", flagsAccepted=" + emittedFlags
                     + ", flagsSuppressed=" + suppressedFlags + ". Flags do not confirm notification delivery.\n";
+        }
+
+        private String formatOpportunities() {
+            StringBuilder text = new StringBuilder("Opportunity model: trainingAttacks=")
+                    .append(opportunityProgress.trainingAttacks()).append("/12, trained=")
+                    .append(opportunityProgress.trained()).append("; training is not scored.\n");
+            for (var profile : opportunityProgress.profiles()) {
+                text.append("  ").append(profile.profile()).append(" window=").append(profile.completedEpisodes())
+                        .append("/32 hits=").append(profile.hits()).append(" prompt=").append(profile.promptHits())
+                        .append(" censored=").append(profile.censored()).append(" acquisition=").append(profile.acquisitionOpportunities())
+                        .append(" falling=").append(profile.fallingOpportunities()).append(" cooldown=").append(profile.cooldownOpportunities())
+                        .append(" sprintSequence=").append(profile.sprintCorroboratedHits())
+                        .append(" queued=").append(profile.queuedOpportunities()).append(" controls=").append(profile.controlOpportunities())
+                        .append(" promptControls=").append(profile.promptControlHits())
+                        .append(" gapBuckets=").append(profile.gapBuckets()).append(" pending=").append(profile.pending())
+                        .append(" supportWindow=").append(profile.supportWindow()).append('\n');
+            }
+            return text.toString();
         }
     }
 }

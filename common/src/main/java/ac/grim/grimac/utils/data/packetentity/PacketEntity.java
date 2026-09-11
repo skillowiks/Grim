@@ -17,6 +17,7 @@ package ac.grim.grimac.utils.data.packetentity;
 
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.collisions.datatypes.SimpleCollisionBox;
+import ac.grim.grimac.utils.data.HitboxStateSnapshot;
 import ac.grim.grimac.utils.data.ReachInterpolationData;
 import ac.grim.grimac.utils.data.TrackedPosition;
 import ac.grim.grimac.utils.data.attribute.ValuedAttribute;
@@ -307,6 +308,18 @@ public class PacketEntity extends TypedPacketEntity {
         }
 
         return ReachInterpolationData.combineCollisionBox(oldPacketLocation.getPossibleHitboxCombined(), newPacketLocation.getPossibleHitboxCombined());
+    }
+
+    /**
+     * Immutable snapshots of at most the current and previous standing-player
+     * interpolation states. No live boxes escape and no uncertainty is narrowed.
+     * Unsupported or transitioning poses have no certifiable fixed dimensions.
+     */
+    public List<HitboxStateSnapshot> getPossibleHitboxStates() {
+        if (getType() != EntityTypes.PLAYER || isDead || isBaby || riding != null
+                || currentPose != Pose.STANDING || transitionalPose != null || newPacketLocation == null) return List.of();
+        HitboxStateSnapshot current = newPacketLocation.snapshotHitboxState();
+        return oldPacketLocation == null ? List.of(current) : List.of(current, oldPacketLocation.snapshotHitboxState());
     }
 
     /**

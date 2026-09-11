@@ -1,5 +1,7 @@
 package ac.grim.grimac.checks.impl.aim.triggerbot;
 
+import ac.grim.grimac.utils.data.HitboxStateSnapshot;
+
 import java.util.List;
 
 /** Geometry only: no player state, packet handling, or check buffers are accessed. */
@@ -7,6 +9,8 @@ public final class TriggerBotGeometry {
     public static final double BOUNDARY_EPSILON = 1.0E-6;
     public static final int MAX_EYES = 6;
     public static final int MAX_DIRECTIONS = 3;
+    public static final int MAX_HITBOX_STATES = 2;
+    private static final int MAX_STATE_VERTICES = 8;
 
     private TriggerBotGeometry() {
     }
@@ -58,6 +62,89 @@ public final class TriggerBotGeometry {
             for (Vec3 direction : unitDirections) {
                 if (rayDistanceUnit(expanded, eye, direction) <= maxReach) anyRayHitsOuter = true;
                 if (everyRayInside && rayDistanceUnit(contracted, eye, direction) > maxReach) everyRayInside = false;
+            }
+        }
+        if (!anyRayHitsOuter) return Result.OUTSIDE;
+        return everyRayInside ? Result.INSIDE : Result.UNKNOWN;
+    }
+
+    /**
+     * Certifies each fixed-size hitbox represented by the supplied feet envelopes,
+     * without requiring the boxes to share a common volume. For a finite ray
+     * segment S and a fixed box B, the feet positions for which S intersects p+B
+     * form the convex Minkowski sum S+(-B). Therefore hitting every vertex of a
+     * feet envelope certifies every position inside it. This is applied separately
+     * to both interpolation states and every admissible eye/direction pair.
+     *
+     * The origin uncertainty is an axis-wise displacement bound. Expanding the
+     * outer envelope protects OUTSIDE; contracting each candidate box protects
+     * INSIDE. Invalid or collapsed geometry stays UNKNOWN. At most two states,
+     * eight vertices per state, six eyes and three directions are examined.
+     * Occlusion remains the caller's responsibility.
+     */
+    public static Result classifyHitboxStates(Box outer, List<HitboxStateSnapshot> states,
+                                             List<Vec3> eyes, List<Vec3> directions,
+                                             double maxReach, double originUncertainty) {
+        if (!valid(outer) || !Double.isFinite(maxReach) || maxReach < 0
+                || !Double.isFinite(originUncertainty) || originUncertainty < 0
+                || states == null || states.isEmpty() || states.size() > MAX_HITBOX_STATES
+                || eyes == null || eyes.isEmpty() || eyes.size() > MAX_EYES
+                || directions == null || directions.isEmpty() || directions.size() > MAX_DIRECTIONS) {
+            return Result.UNKNOWN;
+        }
+        double margin = originUncertainty + BOUNDARY_EPSILON;
+        Box expanded = expand(outer, margin);
+        if (!valid(expanded)) return Result.UNKNOWN;
+
+        Box[] candidates = new Box[MAX_HITBOX_STATES * MAX_STATE_VERTICES];
+        int candidateCount = 0;
+        for (HitboxStateSnapshot state : states) {
+            if (!valid(state)) return Result.UNKNOWN;
+            Box envelope = new Box(state.minX() - state.width() / 2, state.minY(), state.minZ() - state.depth() / 2,
+                    state.maxX() + state.width() / 2, state.maxY() + state.height(), state.maxZ() + state.depth() / 2);
+            if (!valid(envelope) || !contains(outer, envelope)) return Result.UNKNOWN;
+            for (int corner = 0; corner < MAX_STATE_VERTICES; corner++) {
+                // Degenerate feet ranges need only one endpoint per axis.
+                if (((corner & 1) != 0 && state.minX() == state.maxX())
+                        || ((corner & 2) != 0 && state.minY() == state.maxY())
+                        || ((corner & 4) != 0 && state.minZ() == state.maxZ())) continue;
+                double x = (corner & 1) == 0 ? state.minX() : state.maxX();
+                double y = (corner & 2) == 0 ? state.minY() : state.maxY();
+                double z = (corner & 4) == 0 ? state.minZ() : state.maxZ();
+                Box candidate = new Box(Math.nextUp(x - state.width() / 2 + margin), Math.nextUp(y + margin),
+                        Math.nextUp(z - state.depth() / 2 + margin), Math.nextDown(x + state.width() / 2 - margin),
+                        Math.nextDown(y + state.height() - margin), Math.nextDown(z + state.depth() / 2 - margin));
+                // Never reorder inverted bounds into an invented positive-volume box.
+                if (!valid(candidate)) return Result.UNKNOWN;
+                candidates[candidateCount++] = candidate;
+            }
+        }
+
+        Vec3[] eyeSnapshots = new Vec3[eyes.size()];
+        for (int i = 0; i < eyeSnapshots.length; i++) {
+            Vec3 eye = eyes.get(i);
+            if (!finite(eye) || contains(expanded, eye)) return Result.UNKNOWN;
+            eyeSnapshots[i] = eye;
+        }
+        Vec3[] unitDirections = new Vec3[directions.size()];
+        for (int i = 0; i < unitDirections.length; i++) {
+            unitDirections[i] = normalize(directions.get(i));
+            if (unitDirections[i] == null) return Result.UNKNOWN;
+        }
+
+        boolean anyRayHitsOuter = false;
+        boolean everyRayInside = true;
+        for (Vec3 eye : eyeSnapshots) {
+            for (Vec3 direction : unitDirections) {
+                if (rayDistanceUnit(expanded, eye, direction) <= maxReach) anyRayHitsOuter = true;
+                if (everyRayInside) {
+                    for (int i = 0; i < candidateCount; i++) {
+                        if (rayDistanceUnit(candidates[i], eye, direction) > maxReach) {
+                            everyRayInside = false;
+                            break;
+                        }
+                    }
+                }
             }
         }
         if (!anyRayHitsOuter) return Result.OUTSIDE;
@@ -118,6 +205,12 @@ public final class TriggerBotGeometry {
                 Math.nextUp(box.maxY + BOUNDARY_EPSILON), Math.nextUp(box.maxZ + BOUNDARY_EPSILON));
     }
 
+    private static Box expand(Box box, double margin) {
+        return new Box(Math.nextDown(box.minX - margin), Math.nextDown(box.minY - margin),
+                Math.nextDown(box.minZ - margin), Math.nextUp(box.maxX + margin),
+                Math.nextUp(box.maxY + margin), Math.nextUp(box.maxZ + margin));
+    }
+
     private static Box shrink(Box box) {
         return new Box(Math.nextUp(box.minX + BOUNDARY_EPSILON), Math.nextUp(box.minY + BOUNDARY_EPSILON),
                 Math.nextUp(box.minZ + BOUNDARY_EPSILON), Math.nextDown(box.maxX - BOUNDARY_EPSILON),
@@ -132,6 +225,14 @@ public final class TriggerBotGeometry {
         return box != null && Double.isFinite(box.minX) && Double.isFinite(box.minY) && Double.isFinite(box.minZ)
                 && Double.isFinite(box.maxX) && Double.isFinite(box.maxY) && Double.isFinite(box.maxZ)
                 && box.minX < box.maxX && box.minY < box.maxY && box.minZ < box.maxZ;
+    }
+
+    private static boolean valid(HitboxStateSnapshot state) {
+        return state != null && Double.isFinite(state.minX()) && Double.isFinite(state.minY()) && Double.isFinite(state.minZ())
+                && Double.isFinite(state.maxX()) && Double.isFinite(state.maxY()) && Double.isFinite(state.maxZ())
+                && state.minX() <= state.maxX() && state.minY() <= state.maxY() && state.minZ() <= state.maxZ()
+                && Double.isFinite(state.width()) && Double.isFinite(state.height()) && Double.isFinite(state.depth())
+                && state.width() > 0 && state.height() > 0 && state.depth() > 0;
     }
 
     private static boolean contains(Box box, Vec3 point) {

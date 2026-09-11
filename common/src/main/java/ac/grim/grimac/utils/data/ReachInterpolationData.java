@@ -255,6 +255,19 @@ public class ReachInterpolationData {
     }
 
     /**
+     * Copies the represented feet envelope and current dimensions without exposing
+     * mutable interpolation data. Includes the same teleport uncertainty as the
+     * outer hitbox; callers must first exclude uncertain dimensions/poses.
+     */
+    public HitboxStateSnapshot snapshotHitboxState() {
+        SimpleCollisionBox positions = getPossibleLocationCombined();
+        if (expandNonRelative) positions.expand(0.03125D, 0.015625D, 0.03125D);
+        double[] dimensions = GetBoundingBox.getEntityDimensions(player, entity);
+        return new HitboxStateSnapshot(positions.minX, positions.minY, positions.minZ,
+                positions.maxX, positions.maxY, positions.maxZ, dimensions[0], dimensions[1], dimensions[2]);
+    }
+
+    /**
      * Intersection of fixed-size hitboxes at every represented feet position.
      * Unlike getPossibleHitboxCombined(), this can be empty when interpolation
      * uncertainty is wider than the entity. Neither interpolation nor its boxes

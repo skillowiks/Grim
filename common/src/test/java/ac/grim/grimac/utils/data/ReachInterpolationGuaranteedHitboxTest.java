@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -150,6 +151,66 @@ class ReachInterpolationGuaranteedHitboxTest {
         TestEntity mob = new TestEntity(EntityTypes.ZOMBIE);
         install(mob, null, location(mob, box(0, 0, 0, 0, 0, 0)));
         assertNull(mob.getGuaranteedCollisionBox());
+    }
+
+    @Test
+    void hitboxStateSnapshotsPreserveBothDisjointIntervalsWithoutLiveReferences() throws Exception {
+        TestEntity entity = new TestEntity(EntityTypes.PLAYER);
+        SimpleCollisionBox oldFeet = box(0, 0, 1, 0, 0, 1);
+        SimpleCollisionBox currentFeet = box(0, 0, 2, 0, 0, 3);
+        ReachInterpolationData old = location(entity, oldFeet);
+        ReachInterpolationData current = location(entity, currentFeet);
+        install(entity, old, current);
+        SimpleCollisionBox outerBefore = entity.getPossibleCollisionBoxes();
+        List<HitboxStateSnapshot> snapshots = entity.getPossibleHitboxStates();
+        HitboxStateSnapshot expectedCurrent = new HitboxStateSnapshot(0, 0, 2, 0, 0, 3, 0.6F, 1.8F, 0.6F);
+        HitboxStateSnapshot expectedOld = new HitboxStateSnapshot(0, 0, 1, 0, 0, 1, 0.6F, 1.8F, 0.6F);
+        assertEquals(List.of(expectedCurrent, expectedOld), snapshots);
+        assertThrows(UnsupportedOperationException.class, () -> snapshots.clear());
+        assertBox(outerBefore, entity.getPossibleCollisionBoxes());
+        assertBox(box(0, 0, 1, 0, 0, 1), oldFeet);
+        assertBox(box(0, 0, 2, 0, 0, 3), currentFeet);
+        assertNull(entity.getGuaranteedCollisionBox());
+        currentFeet.offset(5, 5, 5);
+        entity.scale = 0.5;
+        assertEquals(List.of(expectedCurrent, expectedOld), snapshots);
+        assertNotEquals(expectedCurrent, current.snapshotHitboxState());
+    }
+
+    @Test
+    void hitboxStateSnapshotsIncludeTeleportUncertaintyAndFloatScaledDimensions() throws Exception {
+        TestEntity entity = new TestEntity(EntityTypes.PLAYER);
+        entity.scale = 0.5;
+        ReachInterpolationData location = location(entity, box(0, 0, 2, 0, 0, 2));
+        location.expandNonRelative();
+        install(entity, null, location);
+        assertEquals(List.of(new HitboxStateSnapshot(-0.03125, -0.015625, 2 - 0.03125,
+                0.03125, 0.015625, 2 + 0.03125, 0.6F * 0.5F, 1.8F * 0.5F, 0.6F * 0.5F)), entity.getPossibleHitboxStates());
+        assertBox(box(0, 0, 2, 0, 0, 2), location.getPossibleLocationCombined());
+    }
+
+    @Test
+    void hitboxStateSnapshotsExcludeUncertainDimensionsAndUnsupportedEntities() throws Exception {
+        TestEntity entity = new TestEntity(EntityTypes.PLAYER);
+        assertTrue(entity.getPossibleHitboxStates().isEmpty());
+        install(entity, null, location(entity, box(0, 0, 0, 0, 0, 0)));
+        assertEquals(1, entity.getPossibleHitboxStates().size());
+        entity.beginPoseTransition(Pose.CROUCHING);
+        assertTrue(entity.getPossibleHitboxStates().isEmpty());
+        entity.completePoseTransition(Pose.CROUCHING);
+        assertTrue(entity.getPossibleHitboxStates().isEmpty());
+        entity.completePoseTransition(Pose.STANDING);
+        entity.isDead = true;
+        assertTrue(entity.getPossibleHitboxStates().isEmpty());
+        entity.isDead = false;
+        entity.isBaby = true;
+        assertTrue(entity.getPossibleHitboxStates().isEmpty());
+        entity.isBaby = false;
+        entity.riding = new TestEntity(EntityTypes.PLAYER);
+        assertTrue(entity.getPossibleHitboxStates().isEmpty());
+        TestEntity mob = new TestEntity(EntityTypes.ZOMBIE);
+        install(mob, null, location(mob, box(0, 0, 0, 0, 0, 0)));
+        assertTrue(mob.getPossibleHitboxStates().isEmpty());
     }
 
     private static ReachInterpolationData location(PacketEntity entity, SimpleCollisionBox feet) {
