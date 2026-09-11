@@ -18,6 +18,7 @@ import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
 import com.github.retrooper.packetevents.protocol.item.ItemStack;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.GameMode;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
@@ -128,7 +129,16 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             if (action == WrapperPlayClientEntityAction.Action.START_SPRINTING) r.lastSprintStartTick = r.tick + 1;
             else if (action == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) r.lastSprintStopTick = r.tick + 1;
         }
-        if (event.isCancelled() || player.packetStateData.lastPacketWasTeleport
+        boolean disruptiveCancellation = event.isCancelled();
+        if (disruptiveCancellation && isConsumedSyncReply(event.getPacketType(), player.packetStateData.lastTransactionPacketWasValid)) {
+            // PacketPingListener consumes our valid PONGs at LOWEST. They are
+            // normal synchronization, not rejected combat/movement. Resetting
+            // quietTicks on these recurring replies starves every observation.
+            r.consumedSyncReplies++;
+            disruptiveCancellation = false;
+        }
+        if (disruptiveCancellation) r.disruptiveCancellations++;
+        if (disruptiveCancellation || player.packetStateData.lastPacketWasTeleport
                 || player.packetStateData.lastPacketWasOnePointSeventeenDuplicate) {
             r.invalidInterval = true;
             r.quietTicks = 10;
@@ -197,6 +207,14 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         // At most one immutable snapshot per second and per 20 client tick-ends.
         // Formatting is never performed here, including when the queue is full.
         if (r.tick - r.lastPublishTick >= 20 && now - r.lastPublishNanos >= 1_000_000_000L) r.publish(now);
+    }
+
+    static boolean isConsumedSyncReply(PacketTypeCommon packetType, boolean validTransaction) {
+        // Validity is reset by PacketPingListener for each PONG, but may remain
+        // true on other packet types. Never exempt them based on this bit alone.
+        // Tick-end clients use PONG; legacy window acknowledgements can also be
+        // cancelled by checks for reasons other than synchronization.
+        return packetType == PacketType.Play.Client.PONG && validTransaction;
     }
 
     private String eligibilityProblem() {
@@ -319,6 +337,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         final List<Integer> pendingAttacks = new ArrayList<>(MAX_TARGETS);
         final Map<String, Long> exclusions = new LinkedHashMap<>();
         long tick, lastTickNanos, observedTicks, excludedTicks, unknownGeometry, attacks;
+        long consumedSyncReplies, disruptiveCancellations;
         long lastSprintStartTick = -1, lastSprintStopTick = -1, lastAttackSampleTick = -1;
         long lastPublishTick, lastPublishNanos, skippedReports;
         final AtomicBoolean publicationPending = new AtomicBoolean();
@@ -344,6 +363,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             }
             ReportSnapshot snapshot = new ReportSnapshot(tick, observedTicks, excludedTicks, unknownGeometry,
                     attacks, lastExclusion, Map.copyOf(exclusions), episodes.pendingEpisodes(), skippedReports,
+                    consumedSyncReplies, disruptiveCancellations,
                     statistics.copyEpisodes(), attackSamples.copySamples());
             long version = session.reserveTriggerBotReport();
             if (version < 0) {
@@ -373,6 +393,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
     private record ReportSnapshot(long tick, long observedTicks, long excludedTicks, long unknownGeometry,
                                   long attacks, String lastExclusion, Map<String, Long> exclusions,
                                   int pendingEpisodes, long skippedReports,
+                                  long consumedSyncReplies, long disruptiveCancellations,
                                   List<TriggerBotStatistics.Episode> episodes,
                                   List<TriggerBotAttackSamples.Sample> attackSamples) {
         String format() {
@@ -382,6 +403,8 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
                     + "ticks=" + tick + ", observed=" + observedTicks + ", excluded=" + excludedTicks
                     + ", unknownGeometry=" + unknownGeometry + ", attacks=" + attacks + ", lastExclusion=" + lastExclusion + "\n"
                     + "excludedTicksByReason=" + exclusions + ", pendingCensored=" + pendingEpisodes + "\n"
+                    + "consumedSyncReplies=" + consumedSyncReplies + ", disruptiveCancelledPackets=" + disruptiveCancellations
+                    + "; packet counts, not excluded ticks. Valid consumed PONGs do not interrupt observations.\n"
                     + "Asynchronous snapshot through tick=" + tick + ", skippedPublications=" + skippedReports
                     + "; may lag; packet processing does not wait for report completion.\n"
                     + TriggerBotStatistics.formatReport(episodes) + TriggerBotAttackSamples.formatReport(attackSamples);
