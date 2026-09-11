@@ -13,6 +13,38 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TriggerBotObserverTest {
     @Test
+    void attackCaptureSupportsBothNativeAndViaTranslatedFormatsOnly() {
+        // Via can expose ATTACK before translation and INTERACT_ENTITY afterward,
+        // or the reverse on a newer server. Choose by packet type, not client version.
+        for (PacketType.Play.Client type : PacketType.Play.Client.values()) {
+            boolean expected = type == PacketType.Play.Client.ATTACK
+                    || type == PacketType.Play.Client.INTERACT_ENTITY;
+            assertEquals(expected, TriggerBotObserver.isSupportedAttackPacket(type), type.toString());
+        }
+        assertFalse(TriggerBotObserver.isSupportedAttackPacket(null));
+    }
+
+    @Test
+    void fullCooldownAcceptsOnlyOneFloatStepOfRoundingBelowOne() {
+        assertEquals(0.99999994F, Math.nextDown(1.0F));
+        assertTrue(TriggerBotObserver.isFullyCooled(1.0F));
+        assertTrue(TriggerBotObserver.isFullyCooled(0.99999994F));
+        assertTrue(TriggerBotObserver.isFullyCooled(Math.nextUp(1.0F)));
+
+        assertFalse(TriggerBotObserver.isFullyCooled(Math.nextDown(Math.nextDown(1.0F))));
+        for (float progress : new float[]{0.9999998F, 0.99F, 0.9F, 0.5F, 0.0F, -1.0F}) {
+            assertFalse(TriggerBotObserver.isFullyCooled(progress), Float.toString(progress));
+        }
+    }
+
+    @Test
+    void nonFiniteCooldownCannotQualifyAsReady() {
+        assertFalse(TriggerBotObserver.isFullyCooled(Float.NaN));
+        assertFalse(TriggerBotObserver.isFullyCooled(Float.POSITIVE_INFINITY));
+        assertFalse(TriggerBotObserver.isFullyCooled(Float.NEGATIVE_INFINITY));
+    }
+
+    @Test
     void recurringConsumedPongsDoNotEraseAcquisitionsBetweenTicks() {
         List<TriggerBotStatistics.Episode> recorded = new ArrayList<>();
         TriggerBotEpisodes episodes = new TriggerBotEpisodes(recorded::add);

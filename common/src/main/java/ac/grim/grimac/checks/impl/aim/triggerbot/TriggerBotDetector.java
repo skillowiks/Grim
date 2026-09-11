@@ -34,6 +34,12 @@ public final class TriggerBotDetector {
     public record Evidence(int episodes, int hits, int fastHits, int zeroDelayHits, long elapsedTicks) {
     }
 
+    /** Current bounded state, copied on the owning packet thread for later report formatting. */
+    public record Snapshot(int completedEpisodes, int hits, int fastHits, int zeroDelayHits,
+                           int censored, int gapBuckets, int outsideStreak,
+                           boolean pending, boolean supportWindow) {
+    }
+
     private Object identity;
     private String weapon;
     private double attackSpeed;
@@ -50,6 +56,12 @@ public final class TriggerBotDetector {
     private boolean hasCompletedTime;
     private long lastCompletedNanos;
     private Window support;
+
+    /** Read-only: does not advance clocks, expire evidence, or expose mutable state. */
+    public Snapshot snapshot() {
+        return new Snapshot(completed, hits, fastHits, zeroHits, censored, Integer.bitCount(gapMask),
+                outsideStreak, pendingEntryTick >= 0, support != null);
+    }
 
     public Evidence accept(Frame frame) {
         if (frame == null || frame.targetIdentity() == null || frame.weapon() == null

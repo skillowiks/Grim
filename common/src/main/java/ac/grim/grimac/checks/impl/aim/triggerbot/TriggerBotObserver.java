@@ -21,6 +21,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.GameMode;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import org.jetbrains.annotations.NotNull;
 
@@ -59,7 +60,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
     /** Reads only, before cooldown/sprint prediction consumes inputs. No debug session is required. */
     public void captureBeforeAttack(PacketReceiveEvent event, int id) {
         if (player.uuid == null || !player.supportsEndTick() || event.isCancelled()
-                || event.getPacketType() != PacketType.Play.Client.INTERACT_ENTITY) return;
+                || !isSupportedAttackPacket(event.getPacketType())) return;
         try {
             DeepDebugSession session = activeDebugSession();
             if (session == null && !detector().isDetectionEnabled()) return;
@@ -70,8 +71,10 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             if (r.failed) return;
             long interval = r.tick + 1; // Same label as the next tick-end, including same-interval attacks.
             r.preAttackCount++;
+            if (event.getPacketType() == PacketType.Play.Client.ATTACK) r.preModernAttacks++;
+            else r.preLegacyAttacks++;
             r.preAttackTarget = id;
-            r.preAttackReady = player.attackCooldown.getMinimumProgress() >= 1.0F;
+            r.preAttackReady = isFullyCooled(player.attackCooldown.getMinimumProgress());
             r.preAttackContext = groundedContext(r, interval);
             r.preAttackWeapon = player.inventory.getHeldItem().getType().getName().toString();
             r.preAttackSpeed = player.compensatedEntities.self.getAttributeValue(Attributes.ATTACK_SPEED);
@@ -99,13 +102,19 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
     }
 
     private boolean groundedContext(Recording r, long tick) {
-        return player.onGround && player.lastOnGround && !player.inVehicle() && !player.isFlying
-                && !player.isGliding && !player.isSwimming && !player.isSneaking && player.pose == Pose.STANDING
-                && !player.packetStateData.knownInput.jump() && !player.packetStateData.knownInput.shift()
-                && !player.packetStateData.isSlowedByUsingItem() && player.actualMovement != null
-                && Math.abs(player.actualMovement.getY()) < 1.0E-6
-                && (r.lastSprintStartTick < 0 || tick - r.lastSprintStartTick >= 3)
-                && (r.lastSprintStopTick < 0 || tick - r.lastSprintStopTick >= 3);
+        return groundedProblem(r, tick) == null;
+    }
+
+    private String groundedProblem(Recording r, long tick) {
+        if (player.packetStateData.knownInput.jump()) return "jump-input";
+        if (!player.onGround || !player.lastOnGround || player.actualMovement == null
+                || !(Math.abs(player.actualMovement.getY()) < 1.0E-6)) return "airborne-or-vertical-motion";
+        if (player.inVehicle() || player.isFlying || player.isGliding || player.isSwimming
+                || player.isSneaking || player.pose != Pose.STANDING || player.packetStateData.knownInput.shift()) return "pose";
+        if (player.packetStateData.isSlowedByUsingItem()) return "using-item";
+        if (r.lastSprintStartTick >= 0 && tick - r.lastSprintStartTick < 3
+                || r.lastSprintStopTick >= 0 && tick - r.lastSprintStopTick < 3) return "sprint-transition";
+        return null;
     }
 
     private static long age(long tick, long previous) {
@@ -155,7 +164,9 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             WrapperPlayClientEntityAction.Action action = type == PacketType.Play.Client.ENTITY_ACTION && !event.isCancelled()
                     ? new WrapperPlayClientEntityAction(event).getAction() : null;
             int attackedEntity = -1;
-            if (type == PacketType.Play.Client.INTERACT_ENTITY && !event.isCancelled()) {
+            if (type == PacketType.Play.Client.ATTACK && !event.isCancelled()) {
+                attackedEntity = new WrapperPlayClientAttack(event).getEntityId();
+            } else if (type == PacketType.Play.Client.INTERACT_ENTITY && !event.isCancelled()) {
                 var packet = new WrapperPlayClientInteractEntity(event);
                 if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) attackedEntity = packet.getEntityId();
             }
@@ -216,6 +227,8 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         }
         if (targetId != -1 && !cancelled) {
             r.attacks++;
+            if (type == PacketType.Play.Client.ATTACK) r.postModernAttacks++;
+            else r.postLegacyAttacks++;
             int id = targetId;
             PacketEntity entity = player.compensatedEntities.entityMap.get(id);
             if (entity != null && entity.getType() == EntityTypes.PLAYER && !entity.isDead) {
@@ -273,6 +286,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             r.exclusions.merge(reason, 1L, Long::sum);
             r.lastExclusion = reason;
             r.episodes.invalidate();
+            if (r.session != null) r.detectorExclusions.merge("environment:" + reason, 1L, Long::sum);
             if (reason.equals("teleport-or-resync") || player.disableGrim) detector().resetDetector();
             else detector().invalidate(r.tick, now);
         } else {
@@ -287,7 +301,19 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         r.detectorTransition = false;
         // At most one immutable snapshot per second and per 20 client tick-ends.
         // Formatting is never performed here, including when the queue is full.
-        if (r.session != null && r.tick - r.lastPublishTick >= 20 && now - r.lastPublishNanos >= 1_000_000_000L) r.publish(now);
+        if (r.session != null && r.tick - r.lastPublishTick >= 20 && now - r.lastPublishNanos >= 1_000_000_000L) {
+            r.publish(now, detector().snapshot(now));
+        }
+    }
+
+    static boolean isSupportedAttackPacket(PacketTypeCommon type) {
+        return type == PacketType.Play.Client.INTERACT_ENTITY || type == PacketType.Play.Client.ATTACK;
+    }
+
+    static boolean isFullyCooled(float progress) {
+        // The existing float estimate can report 0.99999994 for a full sword
+        // cooldown. Tolerate exactly the adjacent float, not an earlier tick.
+        return Float.isFinite(progress) && progress >= Math.nextDown(1.0F);
     }
 
     static boolean isConsumedSyncReply(PacketTypeCommon packetType, boolean validTransaction) {
@@ -316,15 +342,21 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         boolean attacked = r.pendingAttacks.size() == 1 && r.pendingAttacks.get(0) == r.primaryTarget;
         boolean attackValid = attacked && r.preAttackCount == 1 && r.preAttackTarget == r.primaryTarget
                 && r.preAttackReady && r.preAttackContext && weapon.equals(r.preAttackWeapon) && attackSpeed == r.preAttackSpeed;
-        boolean ready = attacked ? attackValid : player.attackCooldown.getMinimumProgress() >= 1.0F;
-        boolean contextValid = groundedContext(r, r.tick) && !r.detectorTransition
-                && (!r.swung || attacked) && (r.pendingAttacks.isEmpty() || attacked)
-                && (weapon.endsWith("_sword") || weapon.endsWith("_axe"))
-                && Double.isFinite(attackSpeed) && attackSpeed >= 0.5 && attackSpeed <= 4;
+        boolean ready = attacked ? attackValid : isFullyCooled(player.attackCooldown.getMinimumProgress());
+        String detectorProblem = detector().disabledReason();
+        if (detectorProblem == null) detectorProblem = groundedProblem(r, r.tick);
+        if (detectorProblem == null && (r.detectorTransition || r.swung && !attacked)) detectorProblem = "digging-or-empty-swing";
+        if (detectorProblem == null && !r.pendingAttacks.isEmpty() && !attacked) detectorProblem = "multiple-attacks";
+        if (detectorProblem == null && !(weapon.endsWith("_sword") || weapon.endsWith("_axe"))) detectorProblem = "weapon";
+        if (detectorProblem == null && !(Double.isFinite(attackSpeed) && attackSpeed >= 0.5 && attackSpeed <= 4)) detectorProblem = "attack-speed";
+        if (detectorProblem == null && attacked && r.preAttackCount == 0) detectorProblem = "missing-pre-attack-state";
+        if (detectorProblem == null && attacked && !attackValid) detectorProblem = "invalid-pre-attack-state";
+        if (detectorProblem == null && !ready) detectorProblem = "cooldown-not-ready";
         // Debug retains all descriptive contexts. Background detection spends
         // its geometry budget only on grounded, already-ready combat intervals.
-        boolean detectorEligible = contextValid && ready && detector().isDetectionEnabled();
+        boolean detectorEligible = detectorProblem == null;
         if (!detectorEligible) {
+            if (r.session != null) r.detectorExclusions.merge(detectorProblem, 1L, Long::sum);
             detector().invalidate(r.tick, now);
             if (r.session == null) return;
         }
@@ -353,9 +385,18 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             // Positional packet threshold also applies to the attacker's eye origin.
             Box inner = guaranteed == null ? null : copy(guaranteed.copy().expand(-player.getMovementThreshold()));
             Result result = supportedTarget ? classify(outer, inner, eyes, directions, reach) : Result.UNKNOWN;
-            if (result == Result.INSIDE && (!clearBlocks(inner, eyes, directions, reach)
-                    || !unambiguousEntity(id, eyes, directions, reach))) result = Result.UNKNOWN;
+            String geometryProblem = result != Result.UNKNOWN ? null : !supportedTarget ? "unsupported-target"
+                    : guaranteed == null ? "no-guaranteed-box" : "uncertain-ray";
+            if (result == Result.INSIDE) {
+                geometryProblem = visibilityProblem(inner, eyes, directions, reach);
+                if (geometryProblem == null && !unambiguousEntity(id, eyes, directions, reach)) geometryProblem = "other-entity";
+                if (geometryProblem != null) result = Result.UNKNOWN;
+            }
             results.put(id, result);
+            if (r.session != null) {
+                r.geometryResults.merge(result, 1L, Long::sum);
+                if (geometryProblem != null) r.geometryExclusions.merge(geometryProblem, 1L, Long::sum);
+            }
             if (result == Result.INSIDE) inside++;
         }
         boolean multipleAttackTargets = r.pendingAttacks.stream().distinct().count() > 1;
@@ -371,9 +412,17 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         geometry = TriggerBotEpisodes.withAttackEvidence(inside > 1 ? Result.UNKNOWN : geometry, attacked,
                 multipleAttackTargets || r.pendingAttacks.size() > 1);
         if (!detectorEligible) return;
-        if (primary == null) detector().invalidate(r.tick, now);
-        else detector().observe(new TriggerBotDetector.Frame(r.tick, now, primary.entity, weapon, attackSpeed,
-                geometry, contextValid, ready, attacked, attackValid));
+        if (primary == null) {
+            if (r.session != null) r.detectorExclusions.merge("no-recent-target", 1L, Long::sum);
+            detector().invalidate(r.tick, now);
+        } else {
+            if (r.session != null) {
+                if (geometry == Result.UNKNOWN) r.detectorExclusions.merge("geometry-unknown", 1L, Long::sum);
+                else r.detectorEligibleTicks++;
+            }
+            detector().observe(new TriggerBotDetector.Frame(r.tick, now, primary.entity, weapon, attackSpeed,
+                    geometry, true, ready, attacked, attackValid));
+        }
     }
 
     private boolean unambiguousEntity(int id, List<Vec3> eyes, List<Vec3> directions, double reach) {
@@ -386,12 +435,12 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         return true;
     }
 
-    private boolean clearBlocks(Box inner, List<Vec3> eyes, List<Vec3> directions, double reach) {
+    private String visibilityProblem(Box inner, List<Vec3> eyes, List<Vec3> directions, double reach) {
         double minX = Double.POSITIVE_INFINITY, minY = minX, minZ = minX;
         double maxX = Double.NEGATIVE_INFINITY, maxY = maxX, maxZ = maxX;
         for (Vec3 eye : eyes) for (Vec3 direction : directions) {
             double distance = rayDistance(inner, eye, direction);
-            if (!Double.isFinite(distance) || distance > reach) return false;
+            if (!Double.isFinite(distance) || distance > reach) return "visibility-ray";
             double length = Math.sqrt(direction.x() * direction.x() + direction.y() * direction.y() + direction.z() * direction.z());
             double x = eye.x() + direction.x() / length * distance;
             double y = eye.y() + direction.y() / length * distance;
@@ -402,20 +451,20 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         }
         if (!finiteWorldCoordinate(minX) || !finiteWorldCoordinate(maxX)
                 || !finiteWorldCoordinate(minY) || !finiteWorldCoordinate(maxY)
-                || !finiteWorldCoordinate(minZ) || !finiteWorldCoordinate(maxZ)) return false;
+                || !finiteWorldCoordinate(minZ) || !finiteWorldCoordinate(maxZ)) return "visibility-coordinates";
         int x0 = (int) Math.floor(minX - BOUNDARY_EPSILON), x1 = (int) Math.floor(maxX + BOUNDARY_EPSILON);
         int y0 = (int) Math.floor(minY - BOUNDARY_EPSILON), y1 = (int) Math.floor(maxY + BOUNDARY_EPSILON);
         int z0 = (int) Math.floor(minZ - BOUNDARY_EPSILON), z1 = (int) Math.floor(maxZ + BOUNDARY_EPSILON);
-        if (x1 - x0 > 12 || y1 - y0 > 12 || z1 - z0 > 12) return false;
+        if (x1 - x0 > 12 || y1 - y0 > 12 || z1 - z0 > 12) return "visibility-budget";
         long volume = ((long) x1 - x0 + 1) * ((long) y1 - y0 + 1) * ((long) z1 - z0 + 1);
-        if (volume <= 0 || volume > MAX_VISIBILITY_BLOCKS) return false;
+        if (volume <= 0 || volume > MAX_VISIBILITY_BLOCKS) return "visibility-budget";
         // Deliberately conservative: require the whole prism to be known air.
         // Grass, fluids and partial blocks exclude a sample rather than counting a miss.
         for (int x = x0; x <= x1; x++) for (int z = z0; z <= z1; z++) {
-            if (player.compensatedWorld.getChunk(x >> 4, z >> 4) == null) return false;
-            for (int y = y0; y <= y1; y++) if (!player.compensatedWorld.getBlock(x, y, z).getType().isAir()) return false;
+            if (player.compensatedWorld.getChunk(x >> 4, z >> 4) == null) return "unknown-chunk";
+            for (int y = y0; y <= y1; y++) if (!player.compensatedWorld.getBlock(x, y, z).getType().isAir()) return "block-in-visibility-prism";
         }
-        return true;
+        return null;
     }
 
     private static Box copy(SimpleCollisionBox box) {
@@ -441,7 +490,11 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
         final Map<Integer, Target> targets = new LinkedHashMap<>();
         final List<Integer> pendingAttacks = new ArrayList<>(MAX_TARGETS);
         final Map<String, Long> exclusions = new LinkedHashMap<>();
+        final Map<String, Long> detectorExclusions = new LinkedHashMap<>();
+        final Map<String, Long> geometryExclusions = new LinkedHashMap<>();
+        final Map<Result, Long> geometryResults = new java.util.EnumMap<>(Result.class);
         long tick, lastTickNanos, observedTicks, excludedTicks, unknownGeometry, attacks;
+        long preModernAttacks, preLegacyAttacks, postModernAttacks, postLegacyAttacks, detectorEligibleTicks;
         long consumedSyncReplies, disruptiveCancellations;
         long lastCombatTick;
         int primaryTarget = Integer.MIN_VALUE, preAttackTarget, preAttackCount;
@@ -465,7 +518,7 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             if (session != null) session.setTriggerBotReport("Waiting for a shared observation snapshot. Experimental alerts use separate grounded evidence.");
         }
 
-        void publish(long now) {
+        void publish(long now, TriggerBot.Snapshot detectorSnapshot) {
             lastPublishTick = tick;
             lastPublishNanos = now;
             if (!publicationPending.compareAndSet(false, true)) {
@@ -475,6 +528,8 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
             ReportSnapshot snapshot = new ReportSnapshot(tick, observedTicks, excludedTicks, unknownGeometry,
                     attacks, lastExclusion, Map.copyOf(exclusions), episodes.pendingEpisodes(), skippedReports,
                     consumedSyncReplies, disruptiveCancellations,
+                    preModernAttacks, preLegacyAttacks, postModernAttacks, postLegacyAttacks,
+                    detectorEligibleTicks, Map.copyOf(detectorExclusions), Map.copyOf(geometryResults), Map.copyOf(geometryExclusions), detectorSnapshot,
                     statistics.copyEpisodes(), attackSamples.copySamples());
             long version = session.reserveTriggerBotReport();
             if (version < 0) {
@@ -505,6 +560,10 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
                                   long attacks, String lastExclusion, Map<String, Long> exclusions,
                                   int pendingEpisodes, long skippedReports,
                                   long consumedSyncReplies, long disruptiveCancellations,
+                                  long preModernAttacks, long preLegacyAttacks, long postModernAttacks, long postLegacyAttacks,
+                                  long detectorEligibleTicks, Map<String, Long> detectorExclusions, Map<Result, Long> geometryResults,
+                                  Map<String, Long> geometryExclusions,
+                                  TriggerBot.Snapshot detectorSnapshot,
                                   List<TriggerBotStatistics.Episode> episodes,
                                   List<TriggerBotAttackSamples.Sample> attackSamples) {
         String format() {
@@ -516,6 +575,13 @@ public final class TriggerBotObserver extends GrimProcessor implements PacketRec
                     + "excludedTicksByReason=" + exclusions + ", pendingCensored=" + pendingEpisodes + "\n"
                     + "consumedSyncReplies=" + consumedSyncReplies + ", disruptiveCancelledPackets=" + disruptiveCancellations
                     + "; packet counts, not excluded ticks. Valid consumed PONGs do not interrupt observations.\n"
+                    + "Attack packet formats: preVia ATTACK=" + preModernAttacks + ", INTERACT_ENTITY=" + preLegacyAttacks
+                    + "; accepted postVia ATTACK=" + postModernAttacks + ", INTERACT_ENTITY=" + postLegacyAttacks
+                    + ". Pre/post are two views of the same requests, not additive.\n"
+                    + "Descriptive geometry samples by result=" + geometryResults + "; includes unscored contexts and up to four targets.\n"
+                    + "Geometry UNKNOWN reasons=" + geometryExclusions + "; counts target samples, not ticks.\n"
+                    + "Detector eligible ticks=" + detectorEligibleTicks + ", excludedTicksByFirstReason=" + detectorExclusions + "\n"
+                    + detectorSnapshot.format()
                     + "Asynchronous snapshot through tick=" + tick + ", skippedPublications=" + skippedReports
                     + "; may lag; packet processing does not wait for report completion.\n"
                     + TriggerBotStatistics.formatReport(episodes) + TriggerBotAttackSamples.formatReport(attackSamples);

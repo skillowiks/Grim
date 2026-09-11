@@ -18,6 +18,7 @@ public final class TriggerBot extends Check {
     private volatile long configGeneration;
     private long appliedGeneration = -1;
     private long lastAlertNanos, lastDecayNanos;
+    private long candidateSignals, intervalSuppressedSignals, emittedFlags, suppressedFlags;
 
     public TriggerBot(GrimPlayer player) {
         super(player);
@@ -32,7 +33,16 @@ public final class TriggerBot extends Check {
     }
 
     public boolean isDetectionEnabled() {
-        return configuredEnabled && isEnabled() && !player.disableGrim && !isExemptPermission() && player.supportsEndTick();
+        return disabledReason() == null;
+    }
+
+    String disabledReason() {
+        if (!configuredEnabled) return "disabled-in-config";
+        if (!isEnabled()) return "missing-or-disabled-punishment-group";
+        if (player.disableGrim) return "grim-disabled";
+        if (isExemptPermission()) return "exempt-permission";
+        if (!player.supportsEndTick()) return "unsupported-tick-end";
+        return null;
     }
 
     @Override
@@ -74,12 +84,46 @@ public final class TriggerBot extends Check {
     public void observe(TriggerBotDetector.Frame frame) {
         if (!prepare(frame.nowNanos())) return;
         TriggerBotDetector.Evidence evidence = detector.accept(frame);
-        if (evidence == null || lastAlertNanos != 0 && frame.nowNanos() - lastAlertNanos < alertIntervalNanos) return;
+        if (evidence == null) return;
+        candidateSignals++;
+        if (lastAlertNanos != 0 && frame.nowNanos() - lastAlertNanos < alertIntervalNanos) {
+            intervalSuppressedSignals++;
+            return;
+        }
         // Consume fresh evidence even when an API subscriber suppresses the alert.
         lastAlertNanos = frame.nowNanos();
-        flag("experimental grounded reacquisitions: samples=" + evidence.episodes()
+        boolean accepted = flag("experimental grounded reacquisitions: samples=" + evidence.episodes()
                 + " attacks=" + evidence.hits() + " fast(0-1t)=" + evidence.fastHits()
                 + " sameTick=" + evidence.zeroDelayHits() + " span=" + evidence.elapsedTicks()
                 + "t; review only");
+        if (accepted) emittedFlags++;
+        else suppressedFlags++;
+    }
+
+    /** Called on the receive thread only; formatting uses this immutable copy in the report worker. */
+    Snapshot snapshot(long now) {
+        String disabled = disabledReason();
+        long remaining = lastAlertNanos == 0 ? 0 : Math.max(0, alertIntervalNanos - (now - lastAlertNanos));
+        return new Snapshot(disabled == null ? "enabled" : disabled, configuredEnabled, isEnabled(),
+                TimeUnit.NANOSECONDS.toMillis(remaining), candidateSignals, intervalSuppressedSignals,
+                emittedFlags, suppressedFlags, detector.snapshot());
+    }
+
+    record Snapshot(String state, boolean configuredEnabled, boolean punishmentGroupEnabled,
+                    long alertCooldownMillis, long candidateSignals, long intervalSuppressedSignals,
+                    long emittedFlags, long suppressedFlags, TriggerBotDetector.Snapshot progress) {
+        String format() {
+            return "Detector status=" + state + ", configEnabled=" + configuredEnabled
+                    + ", punishmentGroupEnabled=" + punishmentGroupEnabled
+                    + ", alertCooldownMillis=" + alertCooldownMillis + "\n"
+                    + "Detector current window=" + progress.completedEpisodes() + "/32, hits=" + progress.hits()
+                    + ", fast(0-1t)=" + progress.fastHits() + ", sameTick=" + progress.zeroDelayHits()
+                    + ", censored=" + progress.censored() + ", gapBuckets=" + progress.gapBuckets()
+                    + ", outsideStreak=" + progress.outsideStreak() + "/3, pending=" + progress.pending()
+                    + ", supportWindow=" + progress.supportWindow() + ". A signal requires two fresh passing windows.\n"
+                    + "Detector signals since join: candidates=" + candidateSignals
+                    + ", intervalSuppressed=" + intervalSuppressedSignals + ", flagsAccepted=" + emittedFlags
+                    + ", flagsSuppressed=" + suppressedFlags + ". Flags do not confirm notification delivery.\n";
+        }
     }
 }

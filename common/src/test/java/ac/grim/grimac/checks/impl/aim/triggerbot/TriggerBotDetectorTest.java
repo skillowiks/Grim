@@ -250,6 +250,63 @@ class TriggerBotDetectorTest {
         assertTrue(f.evidence.isEmpty());
     }
 
+    @Test
+    void diagnosticSnapshotsAreImmutableReadsAndShowArmingPendingAndCensoring() {
+        var initial = f.detector.snapshot();
+        assertEquals(new TriggerBotDetector.Snapshot(0, 0, 0, 0, 0, 0, 0, false, false), initial);
+        f.outsideToEntry(18, true, true);
+        var armed = f.detector.snapshot();
+        assertEquals(3, armed.outsideStreak());
+        assertFalse(armed.pending());
+        for (int i = 0; i < 100; i++) assertEquals(armed, f.detector.snapshot());
+        f.send(INSIDE, true, true, false, true);
+        var pending = f.detector.snapshot();
+        assertTrue(pending.pending());
+        assertEquals(0, pending.completedEpisodes());
+        assertEquals(0, pending.outsideStreak());
+        f.excludeNext();
+        var censored = f.detector.snapshot();
+        assertEquals(1, censored.completedEpisodes());
+        assertEquals(1, censored.censored());
+        assertEquals(0, censored.hits());
+        assertFalse(censored.pending());
+        assertEquals(0, initial.completedEpisodes());
+        assertEquals(3, armed.outsideStreak());
+        assertTrue(pending.pending(), "previous snapshots cannot change with live detector state");
+    }
+
+    @Test
+    void diagnosticSnapshotsTrackFreshWindowsSupportConsumptionAndReset() {
+        f.positiveEpisodes(31);
+        var partial = f.detector.snapshot();
+        assertEquals(31, partial.completedEpisodes());
+        assertEquals(31, partial.hits());
+        assertEquals(31, partial.fastHits());
+        assertEquals(23, partial.zeroDelayHits());
+        assertEquals(4, partial.gapBuckets());
+        assertFalse(partial.supportWindow());
+        f.episode(100, 0);
+        var supported = f.detector.snapshot();
+        assertEquals(0, supported.completedEpisodes());
+        assertTrue(supported.supportWindow());
+        f.positiveEpisodes(1);
+        var next = f.detector.snapshot();
+        assertEquals(1, next.completedEpisodes());
+        assertTrue(next.supportWindow());
+        // Repeated report reads cannot promote an incomplete second window.
+        for (int i = 0; i < 100; i++) assertEquals(next, f.detector.snapshot());
+        assertTrue(f.evidence.isEmpty());
+        for (int i = 1; i < 32; i++) f.episode(VARIED_GAPS[i % 4], i % 4 == 0 ? 1 : 0);
+        assertEquals(1, f.evidence.size());
+        assertFalse(f.detector.snapshot().supportWindow());
+        assertEquals(0, f.detector.snapshot().completedEpisodes());
+        f.positiveEpisodes(1);
+        f.detector.reset();
+        assertEquals(new TriggerBotDetector.Snapshot(0, 0, 0, 0, 0, 0, 0, false, false), f.detector.snapshot());
+        assertEquals(31, partial.completedEpisodes());
+        assertTrue(supported.supportWindow());
+    }
+
     private static final class Fixture {
         private final TriggerBotDetector detector = new TriggerBotDetector();
         private final List<TriggerBotDetector.Evidence> evidence = new ArrayList<>();
