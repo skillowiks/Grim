@@ -1,0 +1,14 @@
+# Добавить только группу TriggerBot внутрь существующего раздела Punishments.
+# Не заменять весь серверный punishments.yml и не создавать второй ключ Punishments.
+# После сохранения выполнить /grim reload; для чата включить /grim alerts.
+# TriggerBot.enabled по умолчанию true; общий experimental-checks менять не требуется.
+# Только уведомления и история. Discord требует настроенного webhook.
+Punishments:
+  TriggerBot:
+    remove-violations-after: 300
+    checks:
+      - "TriggerBot"
+    commands:
+      - "1:1 [alert]"
+      - "1:1 [log]"
+      - "1:1 [webhook]"

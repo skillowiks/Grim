@@ -7,6 +7,14 @@
 # [webhook] - DiscordのWebhookに通知する特別なコマンド
 # [proxy] - プロキシに接続された他のサーバーに通知する特別なコマンド（BungeeCord/Velocity用）
 Punishments:
+  # Experimental check: notifications and history only, no punishments.
+  TriggerBot:
+    remove-violations-after: 300
+    checks:
+      - "TriggerBot"
+    commands:
+      - "1:1 [alert]"
+      - "1:1 [log]"
   Simulation:
     # 何秒後に違反をリセットしますか？
     remove-violations-after: 300

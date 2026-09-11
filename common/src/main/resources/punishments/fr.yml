@@ -7,6 +7,14 @@
 # [webhook] - Commande spéciale pour alerter via un Webhook Discord
 # [proxy] - Commande spéciale pour alerter les autres serveurs connectés à votre proxy (BungeeCord/Velocity)
 Punishments:
+  # Experimental check: notifications and history only, no punishments.
+  TriggerBot:
+    remove-violations-after: 300
+    checks:
+      - "TriggerBot"
+    commands:
+      - "1:1 [alert]"
+      - "1:1 [log]"
   Simulation:
     # Au bout de combien de secondes une violation doit-elle être supprimée ?
     remove-violations-after: 300

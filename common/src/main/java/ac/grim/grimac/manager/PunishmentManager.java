@@ -17,6 +17,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class PunishmentManager implements ConfigReloadable {
@@ -102,7 +103,8 @@ public class PunishmentManager implements ConfigReloadable {
                     parsed.add(new ParsedCommand(threshold, interval, commandString));
                 }
 
-                groups.add(new PunishGroup(checksList, parsed, removeViolationsAfter * 1000));
+                groups.addAll(PunishGroup.partition(checksList, parsed, removeViolationsAfter * 1000,
+                        check -> check instanceof Check grimCheck && grimCheck.isAlertOnly()));
             }
         } catch (Exception e) {
             LogUtil.error("Error while loading punishments.yml! This is likely your fault!", e);
@@ -246,6 +248,42 @@ class PunishGroup {
     public final List<ParsedCommand> commands;
     public final ViolationHistory<AbstractCheck> violations = new ViolationHistory<>();
     public final int removeViolationsAfter; // time to remove violations after in milliseconds
+
+    /**
+     * Keep both violation history and mutable command boundaries separate. Otherwise an
+     * alert-only flag could prime a ban that a different check executes on its next flag.
+     */
+    static List<PunishGroup> partition(List<AbstractCheck> checks, List<ParsedCommand> commands,
+                                      int removeViolationsAfter, Predicate<AbstractCheck> alertOnly) {
+        List<AbstractCheck> regularChecks = new ArrayList<>();
+        List<AbstractCheck> alertOnlyChecks = new ArrayList<>();
+        Set<AbstractCheck> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (AbstractCheck check : checks) {
+            if (alertOnly.test(check)) {
+                if (seen.add(check)) alertOnlyChecks.add(check);
+            } else {
+                regularChecks.add(check);
+            }
+        }
+
+        // Preserve the original group and command state when no alert-only check matched.
+        if (alertOnlyChecks.isEmpty()) return List.of(new PunishGroup(checks, commands, removeViolationsAfter));
+
+        List<PunishGroup> partitioned = new ArrayList<>();
+        if (!regularChecks.isEmpty()) {
+            partitioned.add(new PunishGroup(regularChecks, commands, removeViolationsAfter));
+        }
+        for (AbstractCheck check : alertOnlyChecks) {
+            List<ParsedCommand> notifications = new ArrayList<>();
+            for (ParsedCommand command : commands) {
+                if (command.isNotification()) {
+                    notifications.add(new ParsedCommand(command.threshold, command.interval, command.command));
+                }
+            }
+            partitioned.add(new PunishGroup(List.of(check), notifications, removeViolationsAfter));
+        }
+        return partitioned;
+    }
 }
 
 class ParsedCommand {
@@ -262,6 +300,13 @@ class ParsedCommand {
         this.interval = interval;
         this.command = command;
         this.nextBoundary = threshold;
+    }
+
+    boolean isNotification() {
+        return switch (command) {
+            case "[alert]", "[log]", "[webhook]", "[proxy]" -> true;
+            default -> false;
+        };
     }
 
     boolean canExecute(int violationCount) {

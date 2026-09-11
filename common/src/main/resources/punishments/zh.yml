@@ -7,6 +7,14 @@
 # [webhook] - 警告discord webhook 的特殊命令
 # [proxy] - 用于使用(BungeeCord/Velocity)服务器时的警报
 Punishments:
+  # Experimental check: notifications and history only, no punishments.
+  TriggerBot:
+    remove-violations-after: 300
+    checks:
+      - "TriggerBot"
+    commands:
+      - "1:1 [alert]"
+      - "1:1 [log]"
   Simulation:
     # 多少秒后重置VL
     remove-violations-after: 300

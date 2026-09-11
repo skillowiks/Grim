@@ -235,9 +235,14 @@ update-permission-ticks: -1
 #                   instead of silently flat-merging into the wrong keys.
 #   config-version: bumped on every breaking shape change. Old configs
 #                   auto-migrate up via the bundled updater on next start.
-# Experimental TriggerBot research: runs only during /grim debug <player>.
-# Adds descriptive observations to the report, never flags or punishes.
+# Experimental TriggerBot: enable its dedicated group in punishments.yml too.
+# Runs during PvP without debug; independent of experimental-checks above.
+# Grounded, already-cooled reacquisitions only; provisional thresholds, review alerts.
+# Hard notification-only: never cancels hits, sets back or executes console commands.
 TriggerBot:
+    enabled: true
+    alert-interval-seconds: 60
+    # Optional detailed report during /grim debug <player>.
     observation-enabled: true
 
 config-flavor: V2

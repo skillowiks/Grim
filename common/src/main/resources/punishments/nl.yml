@@ -7,6 +7,14 @@
 # [webhook] - speciaal commando om discord webhook te waarschuwen
 # [proxy] - speciaal commando om te waarschuwen voor andere servers die verbonden zijn met je proxy (BungeeCord/Velocity)
 Punishments:
+  # Experimental check: notifications and history only, no punishments.
+  TriggerBot:
+    remove-violations-after: 300
+    checks:
+      - "TriggerBot"
+    commands:
+      - "1:1 [alert]"
+      - "1:1 [log]"
   Simulation:
     # Na hoeveel seconden moet een overtreding worden verwijderd?
     remove-violations-after: 300

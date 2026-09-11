@@ -2,6 +2,7 @@ package ac.grim.grimac.events.packets;
 
 import ac.grim.grimac.GrimAPI;
 import ac.grim.grimac.checks.impl.combat.InvalidInteractTarget;
+import ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotObserver;
 import ac.grim.grimac.manager.deepdebug.DeepDebugManager;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.data.packetentity.PacketEntity;
@@ -96,6 +97,8 @@ public class PacketPlayerAttack extends PacketListenerAbstract {
     }
 
     private void onAttack(PacketReceiveEvent event, GrimPlayer player, int entityId) {
+        // Read-only bounded input capture, before prediction resets the attack cooldown.
+        player.checkManager.get(TriggerBotObserver.class).captureBeforeAttack(event, entityId);
         DeepDebugManager.AttackDebug debug = DeepDebugManager.get().beginAttack(player, event, entityId);
         String outcome = "interrupted";
         try {

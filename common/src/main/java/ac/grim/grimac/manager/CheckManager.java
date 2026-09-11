@@ -9,6 +9,7 @@ import ac.grim.grimac.checks.impl.aim.AimDuplicateLook;
 import ac.grim.grimac.checks.impl.aim.AimModulo360;
 import ac.grim.grimac.checks.impl.aim.processor.AimProcessor;
 import ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBotObserver;
+import ac.grim.grimac.checks.impl.aim.triggerbot.TriggerBot;
 import ac.grim.grimac.checks.impl.badpackets.*;
 import ac.grim.grimac.checks.impl.breaking.*;
 import ac.grim.grimac.checks.impl.chat.ChatA;
@@ -254,7 +255,8 @@ public class CheckManager implements BasicReloadable {
                 .put(TransactionOrder.class, new TransactionOrder(player))
                 .put(VehicleC.class, new VehicleC(player))
                 .put(Hitboxes.class, new Hitboxes(player)) // Hitboxes is invoked by Reach
-                .put(TriggerBotObserver.class, new TriggerBotObserver(player)) // Passive; preserve existing listener order
+                .put(TriggerBot.class, new TriggerBot(player)) // No listener; fed by shared geometry
+                .put(TriggerBotObserver.class, new TriggerBotObserver(player)) // Preserve existing listener order
                 .build();
 
         ArrayList<AbstractCheck> checks = new ArrayList<>();

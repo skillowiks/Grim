@@ -8,6 +8,14 @@
 # [proxy] - special command to alert to other servers connected to your proxy (BungeeCord/Velocity)
 
 Punishments:
+  # Experimental check: notifications and history only, no punishments.
+  TriggerBot:
+    remove-violations-after: 300
+    checks:
+      - "TriggerBot"
+    commands:
+      - "1:1 [alert]"
+      - "1:1 [log]"
   Simulation:
     # After how many seconds should a violation be removed?
     remove-violations-after: 300
