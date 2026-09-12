@@ -3,10 +3,14 @@ package ac.grim.grimac.platform.bukkit.manager;
 import ac.grim.grimac.platform.api.manager.ItemResetHandler;
 import ac.grim.grimac.platform.api.player.PlatformPlayer;
 import ac.grim.grimac.platform.bukkit.utils.reflection.PaperUtils;
+import ac.grim.grimac.utils.nmsutil.WatchableIndexUtil;
 import ac.grim.grimac.utils.reflection.ReflectionUtils;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -15,6 +19,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -28,6 +34,33 @@ public class BukkitItemResetHandler implements ItemResetHandler {
     @Override
     public void resetItemUsage(@Nullable PlatformPlayer player) {
         if (player != null) resetItemUsage.accept((Player) player.getNative());
+    }
+
+    @Override
+    public boolean resyncItemUseFlags(@Nullable PlatformPlayer player) {
+        if (player == null) return false;
+
+        ServerVersion version = PacketEvents.getAPI().getServerManager().getVersion();
+        if (version.isOlderThan(ServerVersion.V_1_17)) return false;
+
+        try {
+            Player bukkitPlayer = (Player) player.getNative();
+            if (!bukkitPlayer.isOnline()) return false;
+
+            // Read all native metadata: an inactive/default byte must be resent even when it is not dirty.
+            EntityData<?> flags = WatchableIndexUtil.getIndex(SpigotConversionUtil.getEntityMetadata(bukkitPlayer), 8);
+            if (flags == null || !(flags.getValue() instanceof Byte)) return false;
+
+            List<EntityData<?>> metadata = new ArrayList<>(1);
+            metadata.add(flags); // Preserve the hand, riptide and any other native bits unchanged.
+            // Use the normal send path so ViaVersion and Grim's transaction tracking see the resync.
+            PacketEvents.getAPI().getPlayerManager().sendPacket(bukkitPlayer,
+                    new WrapperPlayServerEntityMetadata(bukkitPlayer.getEntityId(), metadata));
+            return true;
+        } catch (RuntimeException | LinkageError ignored) {
+            // Optional recovery must not break checks on a server unsupported by PE's metadata reader.
+            return false;
+        }
     }
 
     @Override
