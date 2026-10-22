@@ -8,13 +8,6 @@
 # [proxy] - специальная команда для оповещения других серверов, подключенных к вашему прокси (BungeeCord/Velocity)
 Punishments:
   # Экспериментальная проверка: только уведомления и история, без наказаний.
-  TriggerBot:
-    remove-violations-after: 300
-    checks:
-      - "TriggerBot"
-    commands:
-      - "1:1 [alert]"
-      - "1:1 [log]"
   Simulation:
     # Через сколько секунд нарушение должно быть удалено?
     remove-violations-after: 300

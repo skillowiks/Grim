@@ -92,16 +92,6 @@ public class Check extends GrimProcessor implements AbstractCheck {
                 && !exemptPermission;
     }
 
-    /** Alert-only checks never contribute to groups that can dispatch punishment commands. */
-    public boolean isAlertOnly() {
-        return false;
-    }
-
-    /** Allows an experimental check to use a dedicated opt-in without enabling unrelated checks. */
-    protected boolean isExperimentalEnabled() {
-        return player.isExperimentalChecks();
-    }
-
     /**
      * Evaluated once when CheckManager builds the dispatch arrays.
      * Implementations must only depend on immutable connection properties.
@@ -150,7 +140,7 @@ public class Check extends GrimProcessor implements AbstractCheck {
     }
 
     private boolean recordFlag(@NotNull Supplier<String> verbose) {
-        if (player.disableGrim || (experimental && !isExperimentalEnabled()) || exemptPermission)
+        if (player.disableGrim || (experimental && !player.isExperimentalChecks()) || exemptPermission)
             return false; // Avoid calling event if disabled
 
         if (FLAG_CHANNEL.fire(player, this, verbose)) return false;
@@ -167,7 +157,7 @@ public class Check extends GrimProcessor implements AbstractCheck {
         Supplier<String> rendered = verbose.rendered();
         byte[] verboseData = verbose.data();
 
-        if (player.disableGrim || (experimental && !isExperimentalEnabled()) || exemptPermission)
+        if (player.disableGrim || (experimental && !player.isExperimentalChecks()) || exemptPermission)
             return false; // Avoid calling event if disabled
 
         if (FLAG_CHANNEL.fire(player, this, rendered)) return false;

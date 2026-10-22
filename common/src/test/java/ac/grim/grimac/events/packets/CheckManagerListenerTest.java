@@ -1,5 +1,11 @@
 package ac.grim.grimac.events.packets;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
+import com.github.retrooper.packetevents.manager.server.ServerManager;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import ac.grim.grimac.utils.data.PacketStateData;
 import ac.grim.grimac.utils.data.SetBackData;
 import ac.grim.grimac.utils.data.TeleportData;
@@ -10,8 +16,25 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class CheckManagerListenerTest {
+    private PacketEventsAPI<?> previousApi;
+
+    @BeforeEach
+    void initializeServerVersion() {
+        previousApi = PacketEvents.getAPI();
+        PacketEventsAPI<?> api = mock(PacketEventsAPI.class);
+        when(api.getServerManager()).thenReturn((ServerManager) () -> ServerVersion.V_1_21_11);
+        PacketEvents.setAPI(api);
+    }
+
+    @AfterEach
+    void restoreApi() {
+        PacketEvents.setAPI(previousApi);
+    }
+
     @Test
     void forceResyncWaitsForAcknowledgementWithoutBlockingTheAcknowledgement() {
         PacketStateData state = new PacketStateData();

@@ -45,7 +45,6 @@ public class InitManager {
 
         initializersOnStart = ImmutableList.<StartableInitable>builder()
                 .add(GrimAPI.INSTANCE.getExternalAPI())
-                .add(GrimAPI.INSTANCE.getTriggerBotReportPublisher())
                 .add(new PacketManager())
                 .add(new ViaBackwardsManager())
                 .add(new TickRunner())
@@ -64,7 +63,6 @@ public class InitManager {
 
         initializersOnStop = ImmutableList.<StoppableInitable>builder()
                 .add(new TerminatePacketEvents())
-                .add(GrimAPI.INSTANCE.getTriggerBotReportPublisher())
                 .add(GrimAPI.INSTANCE.getDataStoreLifecycle())
                 .addAll(extraStoppableInitables)
                 .build();

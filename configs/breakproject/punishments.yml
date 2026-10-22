@@ -13,15 +13,6 @@
 
 Punishments:
   # Экспериментальная проверка: только уведомления и история, без наказаний.
-  TriggerBot:
-    remove-violations-after: 300
-    checks:
-      - "TriggerBot"
-    commands:
-      - "1:1 [alert]"
-      - "1:1 [log]"
-      - "1:1 [webhook]"
-
   Simulation:
     remove-violations-after: 300
     checks:

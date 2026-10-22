@@ -79,7 +79,8 @@ dependencies {
         isTransitive = false // messes with guava otherwise
     }
 
-    compileOnly(libs.floodgate.api)
+    // The self-contained API jar retains DeviceOs; its unshaded POM references a retired Geyser snapshot.
+    compileOnly(variantOf(libs.floodgate.api) { classifier("shaded") }) { isTransitive = false }
     compileOnly(libs.viaversion)
     compileOnly(libs.viabackwards)
     compileOnly(libs.netty)
@@ -91,12 +92,17 @@ dependencies {
     testImplementation("com.google.code.gson:gson:2.8.0")
     testImplementation(libs.packetevents.api)
     testImplementation(libs.netty)
+    testImplementation("org.xerial:sqlite-jdbc:3.46.1.3")
+    testRuntimeOnly(libs.grim.internal.shims)
+    testRuntimeOnly("com.google.guava:guava:31.0.1-jre")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testRuntimeOnly(libs.viaversion)
 }
 
 tasks.test {
     useJUnitPlatform()
+    // The live-write regression resolves Grim's version without a server loader.
+    systemProperty("GrimPlatformOverride", "bukkit")
 }
 
 publishing.publications.create<MavenPublication>("maven") {

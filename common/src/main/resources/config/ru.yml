@@ -195,6 +195,9 @@ debug-pipeline-on-join: false
 # Включает экспериментальные проверки
 experimental-checks: false
 
+# Совместное использование одинаковых секций чанков между игроками для экономии памяти (копирование при записи).
+experimental-chunk-sharing: false
+
 reset-item-usage-on-item-update: true
 reset-item-usage-on-attack: true
 reset-item-usage-on-slot-change: true
@@ -233,16 +236,6 @@ max-ping-firework-boost: 1000
 # или провайдера прав не LuckPerms, который меняет права в реальном времени.
 # Установите -1, чтобы отключить опрос. Положительное значение обновляет каждые X тиков.
 update-permission-ticks: -1
-
-# Экспериментальная проверка TriggerBot: нужна отдельная группа в punishments.yml.
-# Работает в PvP без дебага, независимо от общего experimental-checks.
-# Только повторные наземные наведения при заранее готовом оружии; пороги предварительные.
-# Только уведомления: без отмены ударов, откатов и выполнения консольных команд.
-TriggerBot:
-    enabled: true
-    alert-interval-seconds: 60
-    # Подробная статистика дополнительно доступна через /grim debug <игрок>.
-    observation-enabled: true
 
 config-flavor: V2
 config-version: 11

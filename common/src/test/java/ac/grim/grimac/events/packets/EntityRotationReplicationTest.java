@@ -5,6 +5,7 @@ import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.data.PacketStateData;
 import ac.grim.grimac.utils.data.ReachInterpolationData;
 import ac.grim.grimac.utils.data.TrackerData;
+import ac.grim.grimac.utils.data.interpolation.LegacyEntityInterpolation;
 import ac.grim.grimac.utils.data.packetentity.PacketEntity;
 import ac.grim.grimac.utils.latency.CompensatedEntities;
 import ac.grim.grimac.utils.latency.LatencyUtils;
@@ -58,9 +59,11 @@ class EntityRotationReplicationTest {
     }
 
     private static ReachInterpolationData interpolation(PacketEntity entity) throws Exception {
-        Field field = PacketEntity.class.getDeclaredField("newPacketLocation");
+        Field strategy = PacketEntity.class.getDeclaredField("interpolation");
+        strategy.setAccessible(true);
+        Field field = LegacyEntityInterpolation.class.getDeclaredField("newPacketLocation");
         field.setAccessible(true);
-        return (ReachInterpolationData) field.get(entity);
+        return (ReachInterpolationData) field.get(strategy.get(entity));
     }
 
     private static final class Target extends PacketEntity {
@@ -162,6 +165,29 @@ class EntityRotationReplicationTest {
         assertEquals(90, scene.tracked.getXRot());
         if (version.isNewerThanOrEquals(ClientVersion.V_1_21_9)) assertSame(before, interpolation(scene.target));
         else assertNotSame(before, interpolation(scene.target), "older clients must keep their existing restart/freeze rules");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ClientVersion.class, names = {"V_1_21_11", "V_26_3"})
+    void relativeUpdatesKeepDegreesAndReachTheirTargetAcrossInterpolationModels(ClientVersion version) throws Exception {
+        var scene = new Scene(version);
+        scene.full(90, 45);
+        scene.send(new WrapperPlayServerEntityRelativeMoveAndRotation(42, 0.25, 0, 0, -90, -45, false));
+        scene.acknowledge(scene.sent.get() + 1);
+        assertEquals(-90, scene.tracked.getXRot());
+        assertEquals(-45, scene.tracked.getYRot());
+        assertEquals(1.25, scene.target.trackedServerPosition.getPos().x);
+
+        scene.send(new WrapperPlayServerEntityRotation(42, 45, 90, false));
+        scene.acknowledge(scene.sent.get() + 1);
+        assertEquals(45, scene.tracked.getXRot());
+        assertEquals(90, scene.tracked.getYRot());
+        for (int tick = 0; tick < 20; tick++) scene.target.onMovement(true);
+        var bounds = scene.target.getPossibleLocationBoxes();
+        assertEquals(1.25, bounds.minX, 1e-9);
+        assertEquals(1.25, bounds.maxX, 1e-9);
+        assertEquals(64, bounds.minY, 1e-9);
+        assertEquals(64, bounds.maxY, 1e-9);
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})

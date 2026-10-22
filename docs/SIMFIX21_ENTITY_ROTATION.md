@@ -28,7 +28,7 @@ updates following a full sync, delayed application, genuine position/rotation
 changes, and client protocol representatives 1.20, 1.20.2, 1.21.4, 1.21.5, 1.21.7
 (the protocol representative for 1.21.7/1.21.8), 1.21.9 and 1.21.11.
 
-On the original listener, 19 cases fail with assertion errors and the two genuine
+Historical SIMFIX21 validation before the upstream merge: on the original listener, 19 cases fail with assertion errors and the two genuine
 change controls pass. With the fix, all 21 pass. The complete `common` test run
 passes 408 tests across 47 suites, with no skipped or failed cases. Mockito and
 ViaVersion are test-only dependencies needed to construct the controlled player
