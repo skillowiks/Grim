@@ -25,6 +25,7 @@ import ac.grim.grimac.platform.api.sender.Sender;
 import ac.grim.grimac.player.GrimPlayer;
 import ac.grim.grimac.utils.anticheat.LogUtil;
 import ac.grim.grimac.utils.anticheat.MessageUtil;
+import ac.grim.grimac.utils.common.BrigadierArgumentUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -118,7 +119,10 @@ public class GrimHistory implements BuildableCommand {
                     .literal("history", "hist")
                     .permission("grim.history");
             if (withPlayerLiteral) b = b.literal("player");
-            return b.required("target", StringParser.stringParser(), targetSuggestions);
+            // Brigadier's word parser rejects valid offline-mode names such as "*_Easy".
+            // QUOTED keeps ordinary names unchanged while allowing those names to be entered
+            // as quoted single arguments.
+            return b.required("target", StringParser.quotedStringParser(), targetSuggestions);
         };
 
         // handleSessionHelp echoes whichever prefix was used.
@@ -684,7 +688,7 @@ public class GrimHistory implements BuildableCommand {
         SuggestionProvider<Sender> onlineProvider = arguments.onlinePlayerSuggestions();
         return (ctx, in) -> {
             String partial = in.remainingInput();
-            String partialLower = partial == null ? "" : partial.toLowerCase(Locale.ROOT);
+            String partialLower = BrigadierArgumentUtil.stripOpeningQuote(partial == null ? "" : partial).toLowerCase(Locale.ROOT);
             return onlineProvider.suggestionsFuture(ctx, in).toCompletableFuture()
                     .<Iterable<? extends Suggestion>>thenApply(onlineIt -> onlineIt)
                     .completeOnTimeout(List.of(), 500, TimeUnit.MILLISECONDS)
@@ -692,7 +696,10 @@ public class GrimHistory implements BuildableCommand {
                     .thenCompose(onlineIt -> {
                         List<Suggestion> online = new ArrayList<>();
                         onlineIt.forEach(online::add);
-                        if (partialLower.isEmpty()) return CompletableFuture.completedFuture(online);
+                        if (partialLower.isEmpty()) {
+                            BrigadierArgumentUtil.quoteSuggestions(online);
+                            return CompletableFuture.completedFuture(online);
+                        }
                         return supplyOffServerThread(() -> withOfflineMatches(online, partialLower));
                     });
         };
@@ -703,7 +710,7 @@ public class GrimHistory implements BuildableCommand {
         List<Suggestion> out = new ArrayList<>();
         for (Suggestion s : onlineSuggestions) {
             if (seen.add(s.suggestion().toLowerCase(Locale.ROOT))) {
-                out.add(s);
+                out.add(BrigadierArgumentUtil.quoteSuggestion(s));
                 if (out.size() >= MAX_PLAYER_SUGGESTIONS) return out;
             }
         }
@@ -718,7 +725,7 @@ public class GrimHistory implements BuildableCommand {
             for (PlayerIdentity id : page.items()) {
                 if (id.currentName() == null) continue;
                 if (seen.add(id.currentName().toLowerCase(Locale.ROOT))) {
-                    out.add(Suggestion.suggestion(id.currentName()));
+                    out.add(Suggestion.suggestion(BrigadierArgumentUtil.quoteIfNeeded(id.currentName())));
                     if (out.size() >= MAX_PLAYER_SUGGESTIONS) return out;
                 }
             }
