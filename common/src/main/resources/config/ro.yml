@@ -173,6 +173,8 @@ Reach:
     # Ar trebui să anulăm loviturile imposibile?
     # Lovituri de 3.00-3.03 pot trece dar tot vor fi marcate, din cauza limitărilor de ordine a pachetelor
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Va trimite un pachet suplimentar la sfârșitul fiecărui tick pentru a crește șansele de a prinde cheat-uri
     # Injectează în lista de conexiuni a serverului pentru a trimite un pachet final chiar înainte ca serverul să facă flush
     # Activarea va crește traficul pentru toți jucătorii

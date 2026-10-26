@@ -161,6 +161,8 @@ Reach:
     threshold: 0.0005
     # Annulla gli attacchi impossibili
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Abilita l'invio di pacchetti aggiuntivi per il rilevamento degli attacchi
     enable-post-packet: false
 

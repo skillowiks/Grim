@@ -176,6 +176,8 @@ Reach:
     # Sollten wir Treffer annullieren, von denen wir wissen, dass sie unmöglich sind?
     # 3.00-3.03-Treffer können aufgrund von Beschränkungen der Paketreihenfolge durchgehen, aber dennoch gekennzeichnet werden.
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Dies sendet ein zusätzliches Paket am Ende jedes Ticks, um die Wahrscheinlichkeit zu erhöhen, dass Betrüger erwischt werden.
     # Dies injiziert in die Verbindungsliste des Servers, um ein letztes Paket zu senden, kurz bevor der Server geleert wird.
     # Aktivieren dieser Funktion erhöht die Bandbreitennutzung für alle Spieler.

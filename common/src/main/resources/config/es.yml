@@ -179,6 +179,8 @@ Reach:
     # ¿Deberíamos cancelar golpes que sabemos que son imposibles?
     # Golpes de 3.00-3.03 puede que aun asi pasen, pero se marcaran debido a limitaciones del orden de paquetes.
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Esto mandará un paquete adicional al final de cada tick para aumentar las chances de encontrar trampas
     # Esto se inyecta en la lista de conexiones del servidor para mandar un paquete final justo antes de que el servidor haga "flush".
     # Habilitar esto causará que el uso de banda ancha de todos los jugadores aumente

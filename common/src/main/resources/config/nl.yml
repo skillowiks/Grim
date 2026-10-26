@@ -173,6 +173,8 @@ Reach:
     # Moeten we hits annuleren waarvan we weten dat ze onmogelijk zijn?
     # 3.00-3.03 hits kunnen doorkomen, maar toch gemarkeerd worden, vanwege pakketvolgorderbeperkingen
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Dit stuurt een extra pakket aan het eind van elke tick om de kans op het vangen van valsspelers te vergroten
     # Dit injecteert in de verbindingslijst van de server om een laatste pakket te sturen net voordat de server doorspoelt
     # Door dit in te schakelen zal het bandbreedtegebruik voor alle spelers toenemen

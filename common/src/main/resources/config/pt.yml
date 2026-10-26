@@ -177,6 +177,8 @@ Reach:
     # Deve-se cancelar hits que sabemos que são impossíveis?
     # O alcance de 3.00-3.03 pode acabar passando, por conta da ordem de pacotes, mas continuará registrando violações.
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Isso enviará um pacote adicional no final de todos os ticks para aumentar a probabilidade de detectarmos trapaceiros.
     # Isso injeta na lista de conecção do servidor para envar um pacote final logo antes do servidor recarregar.
     # Habilitando isso, irá aumentar o uso de banda para todos os jogadores.

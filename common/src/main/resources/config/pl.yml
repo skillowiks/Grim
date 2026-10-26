@@ -173,6 +173,8 @@ Reach:
     # Czy powinniśmy anulować trafienia, które wiemy, że są niemożliwe?
     # Trafienia w przedziale 3.00-3.03 mogą przejść, ale nadal będą wykrywane z powodu ograniczeń kolejności pakietów.
     block-impossible-hits: true
+    # Should we check for attacks through solid blocks (WallHit)?
+    check-wall-hits: true
     # Spowoduje to wysłanie dodatkowego pakietu na końcu każdego ticka, aby zwiększyć prawdopodobieństwo wykrycia oszustw.
     # Ta metoda wstrzykuje się w listę połączeń serwera, aby wysłać końcowy pakiet tuż przed wysłaniem (flushem) danych przez serwer.
     # Włączenie tego zwiększy użycie pasma dla wszystkich graczy.

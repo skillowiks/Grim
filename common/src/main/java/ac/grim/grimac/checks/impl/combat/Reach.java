@@ -69,6 +69,7 @@ public class Reach extends Check implements PacketReceiveListener {
     private final Int2ObjectMap<InteractionData> playerAttackQueue = new Int2ObjectOpenHashMap<>();
     private boolean cancelImpossibleHits;
     private double threshold;
+    private boolean checkWallHits;
     private double cancelBuffer; // For the next 4 hits after using reach, we aggressively cancel reach
 
     public Reach(GrimPlayer player) {
@@ -249,6 +250,7 @@ public class Reach extends Check implements PacketReceiveListener {
                     }
                     player.checkManager.get(Hitboxes.class).flag(result.verbose() + added);
                 }
+                case WALL -> player.checkManager.get(WallHit.class).flag(result.verbose() + "type=" + reachEntity.getType().getName().getKey());
             }
         }
 
@@ -262,6 +264,8 @@ public class Reach extends Check implements PacketReceiveListener {
         double movementAllowance = attackRangeMovement == null ? 0 : getAttackRangeMovementAllowance(attackRangeMovement);
         double maxReach = applyReachModifiers(targetBox, hasAttackRange, itemMaxReach, itemHitboxMargin, !player.packetStateData.didLastLastMovementIncludePosition) + movementAllowance;
         double minDistance = Double.MAX_VALUE;
+        // Eye position and entity intercept pairs, used to check if the hit went through a block
+        List<Vector3d[]> rays = isPrediction || !checkWallHits ? null : new ArrayList<>();
 
         // https://bugs.mojang.com/browse/MC-67665
         List<Vector3dm> possibleLookDirs = new ArrayList<>(Collections.singletonList(ReachUtils.getLook(player, player.yaw, player.pitch)));
@@ -294,11 +298,16 @@ public class Reach extends Check implements PacketReceiveListener {
 
                 if (ReachUtils.isVecInside(targetBox, eyePos)) {
                     minDistance = 0;
+                    rays = null;
                     break;
                 }
 
                 if (intercept != null) {
-                    minDistance = Math.min(eyePos.distance(intercept), minDistance);
+                    double interceptDistance = eyePos.distance(intercept);
+                    minDistance = Math.min(interceptDistance, minDistance);
+                    if (rays != null && interceptDistance <= maxReach) {
+                        rays.add(new Vector3d[]{eyePos, intercept});
+                    }
                 }
             }
         }
@@ -311,12 +320,22 @@ public class Reach extends Check implements PacketReceiveListener {
             } else if (minDistance > maxReach) {
                 cancelBuffer = 1;
                 return new CheckResult(ResultType.REACH, minDistance, movementAllowance, attackRangeMovement != null);
+            } else if (rays != null && !rays.isEmpty() && isHitThroughWall(rays)) {
+                return new CheckResult(ResultType.WALL, 0, 0, false);
             } else {
                 cancelBuffer = Math.max(0, cancelBuffer - 0.25);
             }
         }
 
         return NONE;
+    }
+
+    private boolean isHitThroughWall(List<Vector3d[]> rays) {
+        WallHit wallHit = player.checkManager.get(WallHit.class);
+        for (Vector3d[] ray : rays) {
+            if (wallHit.isRayClear(ray[0], ray[1])) return false;
+        }
+        return true;
     }
 
     private SimpleCollisionBox getTargetBox(PacketEntity reachEntity) {
@@ -375,10 +394,11 @@ public class Reach extends Check implements PacketReceiveListener {
     public void onReload(@NotNull ConfigManager config) {
         this.cancelImpossibleHits = config.getBooleanElse("Reach.block-impossible-hits", true);
         this.threshold = config.getDoubleElse("Reach.threshold", 0.0005);
+        this.checkWallHits = config.getBooleanElse("Reach.check-wall-hits", true);
     }
 
     private enum ResultType {
-        REACH, HITBOX, NONE
+        REACH, HITBOX, WALL, NONE
     }
 
     private record CheckResult(ResultType type, double minDistance, double extraMovement, boolean hasExtraMovement) {
