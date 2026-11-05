@@ -86,6 +86,8 @@ dependencies {
     compileOnly(libs.luckperms)
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testImplementation(libs.packetevents.api)
+    testImplementation(libs.netty)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

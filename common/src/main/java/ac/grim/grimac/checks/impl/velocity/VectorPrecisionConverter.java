@@ -13,12 +13,15 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class VectorPrecisionConverter {
 
-    private static final ServerVersion SERVER_VERSION = PacketEvents.getAPI().getServerManager().getVersion();
+    private static final class ServerVersionHolder {
+        private static final ServerVersion VERSION = PacketEvents.getAPI().getServerManager().getVersion();
+    }
 
     public static Vector3d convert(ClientVersion version, Vector3d vector) {
-        if (version.isNewerThanOrEquals(ClientVersion.V_1_21_9) && SERVER_VERSION.isOlderThanOrEquals(ServerVersion.V_1_21_8)) {
+        ServerVersion serverVersion = ServerVersionHolder.VERSION;
+        if (version.isNewerThanOrEquals(ClientVersion.V_1_21_9) && serverVersion.isOlderThanOrEquals(ServerVersion.V_1_21_8)) {
             return VectorPrecisionConverter.legacyToLp(vector);
-        } else if (version.isOlderThanOrEquals(ClientVersion.V_1_21_7) && SERVER_VERSION.isNewerThanOrEquals(ServerVersion.V_1_21_9)) {
+        } else if (version.isOlderThanOrEquals(ClientVersion.V_1_21_7) && serverVersion.isNewerThanOrEquals(ServerVersion.V_1_21_9)) {
             return VectorPrecisionConverter.lpToLegacy(vector);
         }
 
@@ -36,22 +39,19 @@ public class VectorPrecisionConverter {
         }
     }
 
-    private static final double PRECISION_LOSS_FIX = 1e-11d;
-
     public static Vector3d lpToLegacy(Vector3d lp) {
-        int xi = (int) (lp.x * 8000d + Math.copySign(PRECISION_LOSS_FIX, lp.x));
-        int yi = (int) (lp.y * 8000d + Math.copySign(PRECISION_LOSS_FIX, lp.y));
-        int zi = (int) (lp.z * 8000d + Math.copySign(PRECISION_LOSS_FIX, lp.z));
-
-        short x = (short) xi;
-        short y = (short) yi;
-        short z = (short) zi;
-
         return new Vector3d(
-                x / 8000d,
-                y / 8000d,
-                z / 8000d
+                toLegacyVelocity(lp.x) / 8000d,
+                toLegacyVelocity(lp.y) / 8000d,
+                toLegacyVelocity(lp.z) / 8000d
         );
+    }
+
+    private static short toLegacyVelocity(double value) {
+        // Match ViaBackwards VelocityUtil: LP encoding is lossy, so round to the
+        // nearest legacy unit and saturate before narrowing. Truncation can turn
+        // a client's 0.003 velocity into 0.002875, which prediction then zeros.
+        return (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, Math.round(value * 8000d)));
     }
 
 }

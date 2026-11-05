@@ -44,6 +44,13 @@ public final class DeepDebugReport {
         environment(sb, session);
         clientSuspects(sb, session, flags);
         movementContexts(sb, flags);
+        sb.append("\n--- SIMULATION / NOSLOW MOVEMENT TRACES ---\n")
+                .append("Last 3 windows; up to 60 movements before and 40 after each trigger.\n");
+        List<String> traces = session.movementTracesSnapshot();
+        if (traces.isEmpty()) sb.append("(no Simulation / NoSlow traces captured)\n");
+        for (int i = 0; i < traces.size(); i++) {
+            sb.append("\nTrace ").append(i + 1).append(":\n").append(traces.get(i)).append('\n');
+        }
         return sb.toString();
     }
 
